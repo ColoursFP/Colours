@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Colours Flex Printing | Billing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+<header class="header">
+  <div class="brand"><img src="assets/logo.jpg"><div><h1>Colours Flex Printing</h1><small>Colours Your Imagination</small></div></div>
+  <nav>
+    <button data-page="invoice" class="nav active">New Invoice</button>
+    <button data-page="history" class="nav">Invoice History</button>
+    <button data-page="rates" class="nav">Rate Card</button>
+  </nav>
+</header>
+
+<section id="invoice" class="page active">
+  <div class="grid two">
+    <div class="card">
+      <h2>Customer Details</h2>
+      <div class="fields">
+        <label>Customer Name<input id="customerName" placeholder="Enter customer name"></label>
+        <label>Phone Number<input id="customerPhone" placeholder="Enter phone number"></label>
+        <label>Invoice Number<input id="invoiceNo"></label>
+        <label>Date<input id="invoiceDate" type="date"></label>
+      </div>
+    </div>
+    <div class="card total-card">
+      <div class="mini-label">TOTAL PAYABLE</div>
+      <div id="grandTotal" class="big-total">₹0.00</div>
+      <div id="itemCount" class="muted">0 items</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>Add Printing Item</h2><span>Examples: 3x3 • 3*3 • 3 x 3</span></div>
+    <div class="add-grid">
+      <label>Size<input id="sizeInput" list="sizes" placeholder="3x3" autocomplete="off"><datalist id="sizes"></datalist></label>
+      <label>Rate<input id="rateInput" readonly placeholder="Auto"></label>
+      <label>Quantity<input id="qtyInput" type="number" min="1" value="1"></label>
+      <button id="addBtn" class="btn primary">+ Add Item</button>
+    </div>
+    <div id="sizeMessage" class="message"></div>
+  </div>
+
+  <div class="card">
+    <div class="section-title"><h2>Items</h2><button id="clearItems" class="link-btn">Clear Items</button></div>
+    <div class="table-wrap"><table><thead><tr><th>#</th><th>Size</th><th>Rate</th><th>Qty</th><th>Amount</th><th></th></tr></thead><tbody id="itemsBody"></tbody></table></div>
+  </div>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Discount</h2>
+      <div class="discount-box"><label>Discount %<input id="discountInput" type="number" min="0" max="100" step=".01" value="0"></label><div><span>Discount Amount</span><b id="discountAmount">₹0.00</b></div></div>
+    </div>
+    <div class="card summary">
+      <div><span>Subtotal</span><b id="subtotal">₹0.00</b></div>
+      <div><span>Discount</span><b id="discountDisplay">₹0.00</b></div>
+      <div class="final"><span>Final Price</span><b id="finalPrice">₹0.00</b></div>
+      <div class="actions"><button id="saveBtn" class="btn secondary">Save Invoice</button><button id="printBtn" class="btn primary">Generate Invoice</button></div>
+    </div>
+  </div>
+</section>
+
+<section id="history" class="page">
+  <div class="card"><div class="section-title"><h2>Invoice History</h2><input id="historySearch" class="small-search" placeholder="Search invoice/customer"></div>
+  <div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
+</section>
+
+<section id="rates" class="page">
+  <div class="card"><div class="section-title"><h2>Flex Printing Rate Card</h2><input id="rateSearch" class="small-search" placeholder="Search size"></div>
+  <div id="rateGrid" class="rate-grid"></div></div>
+</section>
+</div>
+<script src="script.js"></script>
+</body></html>
