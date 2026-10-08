@@ -62,6 +62,27 @@
       <div class="actions"><button id="saveBtn" class="btn secondary">Save Invoice</button><button id="printBtn" class="btn primary">Generate Invoice</button></div>
     </div>
   </div>
+
+  <div class="card payment-card">
+    <h2>Payment Details</h2>
+    <div class="payment-grid">
+      <label>Advance Amount
+        <input id="advanceInput" type="number" min="0" step="0.01" value="0" placeholder="Enter advance amount">
+      </label>
+      <label>Payment Method
+        <select id="paymentMethod">
+          <option value="Cash">Cash</option>
+          <option value="Credit Card">Credit Card</option>
+          <option value="PhonePe">PhonePe</option>
+          <option value="Paytm">Paytm</option>
+          <option value="GPay">GPay</option>
+          <option value="QR Scan">QR Scan</option>
+        </select>
+      </label>
+      <div class="payment-stat"><span>Advance Paid</span><b id="advanceDisplay">₹0.00</b></div>
+      <div class="payment-stat balance"><span>Balance Due</span><b id="balanceDue">₹0.00</b></div>
+    </div>
+  </div>
 </section>
 
 <section id="history" class="page">
