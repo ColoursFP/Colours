@@ -12,6 +12,7 @@
   <nav>
     <button data-page="invoice" class="nav active">New Invoice</button>
     <button data-page="history" class="nav">Invoice History</button>
+    <button data-page="balance" class="nav">Balance</button>
     <button data-page="rates" class="nav">Rate Card</button>
   </nav>
 </header>
@@ -49,15 +50,12 @@
     <div class="section-title"><h2>Items</h2><button id="clearItems" class="link-btn">Clear Items</button></div>
     <div class="table-wrap"><table><thead><tr><th>#</th><th>Size</th><th>Rate</th><th>Qty</th><th>Amount</th><th></th></tr></thead><tbody id="itemsBody"></tbody></table></div>
   </div>
-<div class="card discount-card">
-      <h2>Discount</h2>
-      <div class="discount-box">
-        <label>Discount %
-          <input id="discountInput" type="number" min="0" max="100" step=".01" value="0">
-        </label>
-        <div><span>Discount Amount</span><b id="discountAmount">₹0.00</b></div>
-      </div>
+
   <div class="grid two bottom-grid">
+    <div class="payment-result">
+        <span>Advance Paid <b id="advanceDisplay">₹0.00</b></span>
+        <span>Balance Due <b id="balanceDue">₹0.00</b></span>
+      </div>
     <div class="card payment-card">
       <h2>Payment Details</h2>
       <div class="payment-simple">
@@ -75,11 +73,15 @@
           </select>
         </label>
       </div>
-      <div class="payment-result">
-        <span>Advance Paid <b id="advanceDisplay">₹0.00</b></span>
-        <span>Balance Due <b id="balanceDue">₹0.00</b></span>
-      </div>
     </div>
+    <div class="card discount-card">
+      <h2>Discount</h2>
+      <div class="discount-box">
+        <label>Discount %
+          <input id="discountInput" type="number" min="0" max="100" step=".01" value="0">
+        </label>
+        <div><span>Discount Amount</span><b id="discountAmount">₹0.00</b></div>
+      </div>
     </div>
   </div>
 
@@ -95,6 +97,19 @@
 <section id="history" class="page">
   <div class="card"><div class="section-title"><h2>Invoice History</h2><input id="historySearch" class="small-search" placeholder="Search invoice/customer"></div>
   <div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
+</section>
+
+<section id="balance" class="page">
+  <div class="balance-summary">
+    <div class="card balance-metric"><span>Total Collected</span><strong id="totalCollected">₹0.00</strong></div>
+    <div class="card balance-metric pending"><span>Total Pending</span><strong id="totalPending">₹0.00</strong></div>
+    <div class="card balance-metric"><span>Total Invoice Value</span><strong id="totalInvoiceValue">₹0.00</strong></div>
+  </div>
+  <div class="card">
+    <div class="section-title"><h2>Invoice Balances</h2><input id="balanceSearch" class="small-search" placeholder="Search invoice/customer"></div>
+    <div class="table-wrap"><table><thead><tr><th>Invoice Number</th><th>Customer</th><th>Order Details</th><th>Invoice Total</th><th>Collected</th><th>Pending</th><th>Last Payment</th></tr></thead><tbody id="balanceBody"></tbody></table></div>
+  </div>
+  <div id="balanceDetail" class="card balance-detail" hidden></div>
 </section>
 
 <section id="rates" class="page">
