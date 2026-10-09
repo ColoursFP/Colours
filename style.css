@@ -60,3 +60,89 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .login-message{font-size:13px!important;line-height:1.45!important;overflow-wrap:anywhere!important}
 .login-nav{background:#ed087f!important;color:#fff!important;border-color:#ed087f!important}
 @media(max-width:520px){.login-screen{padding:14px!important}.login-card{padding:22px!important}.login-card h1{font-size:21px!important}}
+
+/* Mobile overflow fix — test before publishing */
+html,
+body {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.app {
+  width: 100%;
+  max-width: 1250px;
+  min-width: 0;
+}
+
+.header,
+.brand,
+.header nav,
+.page,
+.card,
+.grid,
+.fields,
+.add-grid,
+.bottom-grid {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.header nav {
+  flex-wrap: wrap;
+}
+
+.table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 520px) {
+  .header {
+    width: 100%;
+    padding: 12px;
+  }
+
+  .header nav {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .nav {
+    max-width: 100%;
+    padding: 8px;
+    font-size: 12px;
+  }
+
+  .page {
+    padding: 10px;
+  }
+
+  .card {
+    padding: 14px;
+  }
+
+  .section-title {
+    flex-wrap: wrap;
+  }
+
+  .small-search {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .actions {
+    flex-wrap: wrap;
+  }
+
+  .actions .btn {
+    flex: 1 1 140px;
+  }
+
+  .balance-summary {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
