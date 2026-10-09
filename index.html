@@ -3,17 +3,32 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Colours Flex Printing | Billing</title>
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
-<div class="app">
+<section id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <img src="assets/logo-mark.jpg" alt="Colours Flex Printing logo" class="login-logo">
+    <h1>Colours Flex Printing</h1>
+    <p>Secure Billing Portal</p>
+    <form id="loginForm">
+      <label>Email address<input id="loginEmail" type="email" autocomplete="username" required placeholder="Enter portal email"></label>
+      <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter password"></label>
+      <button id="loginButton" type="submit" class="btn primary">Sign In</button>
+    </form>
+    <div id="loginMessage" role="status" class="login-message"></div>
+    <p class="login-help">Portal access is limited to authorized accounts created in Supabase Authentication.</p>
+  </div>
+</section>
+<div class="app" id="mainApp" hidden>
 <header class="header">
   <div class="brand"><img src="assets/logo-mark.jpg"><div><h1>Colours Flex Printing</h1><small>Colours Your Imagination</small></div></div>
   <nav>
     <button data-page="invoice" class="nav active">New Invoice</button>
     <button data-page="history" class="nav">Invoice History</button>
-    <button data-page="balance" class="nav">Balance</button>
+    <button data-page="balance" class="nav" id="balanceNav">Balance</button>
     <button data-page="rates" class="nav">Rate Card</button>
+    <button id="logoutButton" class="nav logout-nav" type="button">Sign Out</button>
   </nav>
 </header>
 
@@ -139,5 +154,7 @@
   <div id="rateGrid" class="rate-grid"></div></div>
 </section>
 </div>
-<script src="script.js?v=11"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase-config.js?v=12"></script>
+<script src="script.js?v=12"></script>
 </body></html>
