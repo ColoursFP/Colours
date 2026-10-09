@@ -11,3 +11,23 @@
 .summary-full{width:100%;margin:0 0 16px;}
 .summary-full .final{font-size:20px}
 @media(max-width:800px){.bottom-grid{grid-template-columns:1fr}.discount-box{flex-direction:row;align-items:end}}
+
+.balance-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}.balance-metric{display:flex;flex-direction:column;gap:10px}.balance-metric span{color:#68798b;font-size:14px}.balance-metric strong{font-size:26px;color:#0b3c69}.balance-metric.pending strong{color:#ed087f}.invoice-link{border:0;background:none;padding:0;color:#0b4f85;text-decoration:underline;cursor:pointer;font:inherit}.pending-text{color:#ed087f;font-weight:700}.paid-text{color:#16834a;font-weight:700}.balance-detail{margin-top:16px}.balance-detail h3{margin:18px 0 10px;color:#07345e}.balance-detail-totals{display:flex;flex-wrap:wrap;gap:22px;padding:15px 0}.balance-detail-totals span{display:flex;gap:6px}.balance-detail[hidden]{display:none}@media(max-width:760px){.balance-summary{grid-template-columns:1fr}.balance-detail-totals{flex-direction:column;gap:8px}}
+
+/* Subtle Colours Flex Printing logo watermark across the website background */
+body{position:relative;isolation:isolate}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:url('assets/logo-mark.jpg');background-repeat:no-repeat;background-position:center center;background-size:min(46vw,520px);opacity:.055}
+@media(max-width:700px){body::before{background-size:min(72vw,360px);background-position:center 48%}}
+
+/* V11 balance dashboard, monthly/yearly filters and transaction ledger */
+.balance-summary{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-bottom:16px}
+.balance-summary .balance-metric{margin-bottom:0;min-width:0}
+.balance-metric span{display:block;color:#68798b;font-size:14px}
+.balance-metric strong{display:block;font-size:26px;color:#0b3c69}
+.balance-heading{align-items:flex-end;flex-wrap:wrap}
+.balance-filters{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap}
+.balance-filters label{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:700}
+.balance-filters select,.balance-filters input{min-height:40px;padding:9px 10px;border:1px solid #ccd6e0;border-radius:8px;background:#fff;font-size:14px}
+.balance-filters .small-search{min-width:190px}
+#monthFilterWrap,#yearFilterWrap{display:none}
+@media(max-width:800px){.balance-summary{grid-template-columns:1fr!important}.balance-filters{width:100%;align-items:stretch}.balance-filters label,.balance-filters input{flex:1;min-width:140px}.balance-filters .small-search{max-width:none;width:100%}}

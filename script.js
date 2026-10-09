@@ -44,13 +44,31 @@ const RATES={
   "10x20": 3400,
   "10x30": 4800
 };
-let items=[], history=JSON.parse(localStorage.getItem('cfp_invoices')||'[]');
+let items=[];
+function readSavedInvoices(){
+  try {
+    const raw=localStorage.getItem('cfp_invoices');
+    const parsed=raw?JSON.parse(raw):[];
+    return Array.isArray(parsed)?parsed:[];
+  } catch(e) { console.error('Could not read saved invoices',e); return []; }
+}
+let history=readSavedInvoices();
+function persistInvoices(){
+  try {
+    localStorage.setItem('cfp_invoices',JSON.stringify(history));
+    return true;
+  } catch(e) {
+    alert('Could not save invoices in this browser. Check browser storage/privacy settings.');
+    console.error(e);
+    return false;
+  }
+}
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(n);
 const norm=s=>String(s||'').toLowerCase().replace(/\\s+/g,'').replace(/[×*]/g,'x');
 const rateFor=s=>RATES[norm(s)]??null;
 function invoiceNo(){return 'CFP-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+String(Date.now()).slice(-5)}
-function setup(){ $('invoiceDate').value=new Date().toISOString().slice(0,10);$('invoiceNo').value=invoiceNo();$('sizes').innerHTML=Object.keys(RATES).filter(x=>!x.includes('above')).map(x=>`<option value="${x}">`).join('');renderItems();renderTotals();renderRates();renderHistory();}
+function setup(){ $('invoiceDate').value=new Date().toISOString().slice(0,10);$('invoiceNo').value=invoiceNo();$('sizes').innerHTML=Object.keys(RATES).filter(x=>!x.includes('above')).map(x=>`<option value="${x}">`).join('');renderItems();renderTotals();renderRates();renderHistory();setupPeriodFilters();renderBalance();}
 $('sizeInput').addEventListener('input',()=>{let r=rateFor($('sizeInput').value);$('rateInput').value=r===null?'':money(r);$('sizeMessage').textContent=r===null&&$('sizeInput').value?'Size not found in rate card.':r!==null?'Rate found: '+money(r):'';});
 $('addBtn').onclick=()=>{let r=rateFor($('sizeInput').value),q=Math.max(1,Number($('qtyInput').value)||1);if(r===null)return alert('Please enter a size from the rate card.');items.push({size:norm($('sizeInput').value),rate:r,qty:q});$('sizeInput').value='';$('rateInput').value='';$('qtyInput').value=1;$('sizeMessage').textContent='';renderItems();renderTotals()};
 $('clearItems').onclick=()=>{items=[];renderItems();renderTotals()};
@@ -92,7 +110,25 @@ function renderTotals(){
   $('itemCount').textContent=items.length+' item'+(items.length===1?'':'s')
 }
 function currentInvoice(){let t=totals();return{id:$('invoiceNo').value||invoiceNo(),date:$('invoiceDate').value,name:$('customerName').value.trim()||'Walk-in Customer',phone:$('customerPhone').value.trim(),items:[...items],discount:t.p,subtotal:t.sub,discountAmount:t.d,total:t.total,advance:t.advance,balance:t.balance,paymentMethod:$('paymentMethod').value||'Cash'}}
-$('saveBtn').onclick=()=>{if(!items.length)return alert('Add at least one item.');let inv=currentInvoice(),i=history.findIndex(x=>x.id===inv.id);if(i>=0)history[i]=inv;else history.unshift(inv);localStorage.setItem('cfp_invoices',JSON.stringify(history));renderHistory();alert('Invoice saved successfully.')};
+$('saveBtn').onclick=()=>{
+  if(!items.length)return alert('Add at least one item.');
+  let inv=currentInvoice(),i=history.findIndex(x=>x.id===inv.id),now=new Date().toISOString();
+  if(i>=0){
+    const old=history[i];
+    inv.payments=Array.isArray(old.payments)?old.payments:[];
+    const oldPaid=Number(old.advance)||0;
+    if(inv.advance>oldPaid) inv.payments.push({amount:inv.advance-oldPaid,method:inv.paymentMethod||'Cash',datetime:now,note:'Additional advance'});
+    if(inv.advance<oldPaid){inv.advance=oldPaid;inv.balance=Math.max(0,inv.total-inv.advance);}
+    history[i]={...old,...inv};
+  } else {
+    inv.payments=[];
+    if(inv.advance>0)inv.payments.push({amount:inv.advance,method:inv.paymentMethod||'Cash',datetime:now,note:'Advance at invoice creation'});
+    inv.createdAt=now;
+    history.unshift(inv);
+  }
+  persistInvoices();
+  renderHistory();refreshPeriodYears();renderBalance();alert('Invoice saved successfully.');
+};
 function loadInvoice(id){
   let x=history.find(v=>v.id===id);
   if(!x)return;
@@ -108,13 +144,13 @@ function loadInvoice(id){
   renderItems();
   renderTotals();
 }
-function deleteInvoice(id){if(!confirm('Delete this saved invoice?'))return;history=history.filter(x=>x.id!==id);localStorage.setItem('cfp_invoices',JSON.stringify(history));renderHistory()}
+function deleteInvoice(id){if(!confirm('Delete this saved invoice?'))return;history=history.filter(x=>x.id!==id);persistInvoices();renderHistory();refreshPeriodYears();renderBalance()}
 function renderHistory(){let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>norm(x.id+' '+x.name+' '+x.phone).includes(q));$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${x.id}</td><td>${x.date}</td><td>${x.name}</td><td>${x.phone||'-'}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${x.id}')">Open</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${x.id}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
 function collectPayment(id){
   let inv=history.find(x=>x.id===id); if(!inv)return;
   let total=Number(inv.total)||0, paid=Number(inv.advance)||0, balance=Math.max(0,total-paid);
   if(balance<=0){alert('This invoice is already fully paid.');return;}
-  let raw=prompt('Balance due: '+money(balance)+'\nEnter amount received:');
+  let raw=prompt('Invoice: '+inv.id+'\nBalance due: '+money(balance)+'\nEnter amount received:');
   if(raw===null)return;
   let amount=Number(raw);
   if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid payment amount.');return;}
@@ -124,11 +160,145 @@ function collectPayment(id){
   let allowed=['Cash','Credit Card','PhonePe','Paytm','GPay','QR Scan'];
   method=allowed.find(m=>m.toLowerCase()===method.trim().toLowerCase())||null;
   if(!method){alert('Choose one of: Cash, Credit Card, PhonePe, Paytm, GPay, QR Scan.');return;}
-  inv.advance=paid+amount; inv.balance=Math.max(0,total-inv.advance); inv.paymentMethod=method;
-  localStorage.setItem('cfp_invoices',JSON.stringify(history)); renderHistory();
-  alert('Payment recorded: '+money(amount)+'\nBalance due: '+money(inv.balance));
+  const now=new Date().toISOString();
+  if(!Array.isArray(inv.payments)){
+    inv.payments=[];
+    if(paid>0)inv.payments.push({amount:paid,method:inv.paymentMethod||'Cash',datetime:inv.createdAt||now,note:'Previously recorded advance; original timestamp unavailable'});
+  }
+  inv.payments.push({amount,method,datetime:now,note:'Payment collection'});
+  inv.advance=paid+amount;
+  inv.balance=Math.max(0,total-inv.advance);
+  inv.paymentMethod=method;
+  persistInvoices();
+  renderHistory();refreshPeriodYears();renderBalance();
+  alert('Payment recorded: '+money(amount)+'\nRecorded at: '+new Date(now).toLocaleString()+'\nBalance due: '+money(inv.balance));
 }
 $('historySearch').oninput=renderHistory;
+function fmtDateTime(value){
+  if(!value)return '—';
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?'—':d.toLocaleString();
+}
+function invoiceTotal(inv){return Number(inv.total??((Number(inv.subtotal)||0)-(Number(inv.discountAmount)||0)))||0}
+function invoicePaid(inv){return Math.min(invoiceTotal(inv),Math.max(0,Number(inv.advance)||0))}
+function invoiceBalance(inv){return Math.max(0,invoiceTotal(inv)-invoicePaid(inv))}
+
+function isoMonth(value){
+  if(!value)return '';
+  const d=new Date(value);
+  if(Number.isNaN(d.getTime()))return '';
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function isoYear(value){
+  if(!value)return '';
+  const d=new Date(value);
+  return Number.isNaN(d.getTime())?'':String(d.getFullYear());
+}
+function paymentRecords(inv){
+  const list=Array.isArray(inv.payments)?inv.payments:[];
+  if(list.length)return list.map((p,i)=>({...p,invoiceId:inv.id,customer:inv.name||'Walk-in Customer',_index:i}));
+  // Older invoices may have an advance but no individual payment records.
+  const paid=Math.max(0,Number(inv.advance)||0);
+  if(paid>0)return [{
+    amount:paid,
+    method:inv.paymentMethod||'Cash',
+    datetime:inv.createdAt||inv.date||'',
+    note:'Previously saved advance',
+    invoiceId:inv.id,
+    customer:inv.name||'Walk-in Customer',
+    _legacy:true
+  }];
+  return [];
+}
+function periodState(){
+  const period=$('periodFilter')?.value||'all';
+  const month=$('monthFilter')?.value||isoMonth(new Date());
+  const year=$('yearFilter')?.value||String(new Date().getFullYear());
+  return {period,month,year};
+}
+function dateMatches(value,filters){
+  if(filters.period==='all')return true;
+  if(filters.period==='month')return isoMonth(value)===filters.month;
+  if(filters.period==='year')return isoYear(value)===filters.year;
+  return true;
+}
+function refreshPeriodYears(){
+  if(!$('yearFilter'))return;
+  const current=$('yearFilter').value||String(new Date().getFullYear());
+  const years=new Set([String(new Date().getFullYear()),current]);
+  history.forEach(inv=>{
+    const y=isoYear(inv.date);if(y)years.add(y);
+    paymentRecords(inv).forEach(p=>{const py=isoYear(p.datetime);if(py)years.add(py)});
+  });
+  $('yearFilter').innerHTML=[...years].sort((a,b)=>Number(b)-Number(a)).map(y=>`<option value="${y}">${y}</option>`).join('');
+  $('yearFilter').value=years.has(current)?current:String(new Date().getFullYear());
+}
+function setupPeriodFilters(){
+  if(!$('periodFilter'))return;
+  $('monthFilter').value=isoMonth(new Date());
+  const years=new Set([String(new Date().getFullYear())]);
+  history.forEach(inv=>{
+    const y=isoYear(inv.date);if(y)years.add(y);
+    paymentRecords(inv).forEach(p=>{const py=isoYear(p.datetime);if(py)years.add(py)});
+  });
+  $('yearFilter').innerHTML=[...years].sort((a,b)=>Number(b)-Number(a)).map(y=>`<option value="${y}">${y}</option>`).join('');
+  $('yearFilter').value=String(new Date().getFullYear());
+  function updateVisibility(){
+    $('monthFilterWrap').style.display=$('periodFilter').value==='month'?'flex':'none';
+    $('yearFilterWrap').style.display=$('periodFilter').value==='year'?'flex':'none';
+    renderBalance();
+  }
+  $('periodFilter').onchange=updateVisibility;
+  $('monthFilter').onchange=renderBalance;
+  $('yearFilter').onchange=renderBalance;
+  updateVisibility();
+}
+function renderTransactions(filters){
+  const records=[];
+  history.forEach(inv=>paymentRecords(inv).forEach(p=>{
+    if(dateMatches(p.datetime||inv.date,filters))records.push({...p,invoiceId:inv.id,customer:inv.name||'Walk-in Customer'});
+  }));
+  records.sort((a,b)=>new Date(b.datetime||0)-new Date(a.datetime||0));
+  $('transactionCount').textContent=`${records.length} transaction${records.length===1?'':'s'}`;
+  $('transactionsBody').innerHTML=records.length?records.map(p=>`<tr><td>${fmtDateTime(p.datetime||'')}</td><td><button class="invoice-link" onclick="showBalanceDetail('${p.invoiceId}')">${p.invoiceId}</button></td><td>${p.customer}</td><td>${p.method||'—'}</td><td>${p.note||'Payment received'}</td><td class="paid-text">${money(Number(p.amount)||0)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No payment transactions found for this period.</td></tr>';
+}
+function renderBalance(){
+  if(!$('balanceBody'))return;
+  const q=norm($('balanceSearch')?.value||'');
+  const filters=periodState();
+  // Invoice value and pending balances are based on invoices issued during the selected period.
+  const periodInvoices=history.filter(x=>dateMatches(x.date,filters));
+  $('totalInvoiceValue').textContent=money(periodInvoices.reduce((s,x)=>s+invoiceTotal(x),0));
+  $('totalPending').textContent=money(periodInvoices.reduce((s,x)=>s+invoiceBalance(x),0));
+  // Collections are based on the actual payment/collection timestamp.
+  const periodPayments=[];
+  history.forEach(inv=>paymentRecords(inv).forEach(p=>{
+    if(dateMatches(p.datetime||inv.date,filters))periodPayments.push(p);
+  }));
+  $('totalCollected').textContent=money(periodPayments.reduce((s,p)=>s+(Number(p.amount)||0),0));
+  const rows=periodInvoices.filter(x=>norm(x.id+' '+x.name+' '+x.phone).includes(q));
+  $('balanceBody').innerHTML=rows.length?rows.map(x=>{
+    const payments=paymentRecords(x);
+    const last=payments.length?payments[payments.length-1].datetime:(x.createdAt||'');
+    const detail=(x.items||[]).map(it=>`${it.size} × ${it.qty}`).join(', ')||'Order details unavailable';
+    return `<tr><td><button class="invoice-link" onclick="showBalanceDetail('${x.id}')">${x.id}</button></td><td>${x.name||'Walk-in Customer'}</td><td>${detail}</td><td>${money(invoiceTotal(x))}</td><td>${money(invoicePaid(x))}</td><td class="${invoiceBalance(x)>0?'pending-text':'paid-text'}">${money(invoiceBalance(x))}</td><td>${fmtDateTime(last)}</td></tr>`;
+  }).join(''):'<tr><td colspan="7" style="text-align:center;color:#7a8794">No invoices found for this period. Check Invoice History or choose another period.</td></tr>';
+  renderTransactions(filters);
+}
+function showBalanceDetail(id){
+  const inv=history.find(x=>x.id===id);if(!inv)return;
+  const payments=Array.isArray(inv.payments)?inv.payments:[];
+  const itemsHtml=(inv.items||[]).map(it=>`<tr><td>${it.size}</td><td>${it.qty}</td><td>${money(it.rate)}</td><td>${money(it.rate*it.qty)}</td></tr>`).join('');
+  const paymentsHtml=payments.length?payments.map(p=>`<tr><td>${fmtDateTime(p.datetime)}</td><td>${p.method||'—'}</td><td>${p.note||'Payment'}</td><td>${money(p.amount)}</td></tr>`).join(''):'<tr><td colspan="4">No payment records are available for this invoice yet.</td></tr>';
+  const el=$('balanceDetail');el.hidden=false;
+  el.innerHTML=`<div class="section-title"><h2>Invoice ${inv.id}</h2><button class="btn secondary" onclick="document.getElementById('balanceDetail').hidden=true">Close</button></div>
+  <p><b>Customer:</b> ${inv.name||'Walk-in Customer'} &nbsp; <b>Invoice date:</b> ${inv.date||'—'}</p>
+  <h3>Items Ordered</h3><div class="table-wrap"><table><thead><tr><th>Size</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${itemsHtml||'<tr><td colspan="4">No item details saved.</td></tr>'}</tbody></table></div>
+  <div class="balance-detail-totals"><span>Invoice total (after discount): <b>${money(invoiceTotal(inv))}</b></span><span>Total collected: <b>${money(invoicePaid(inv))}</b></span><span>Balance pending: <b class="${invoiceBalance(inv)>0?'pending-text':'paid-text'}">${money(invoiceBalance(inv))}</b></span></div>
+  <h3>Payment History</h3><div class="table-wrap"><table><thead><tr><th>Date & Time</th><th>Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody>${paymentsHtml}</tbody></table></div>`;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+}
+$('balanceSearch').oninput=renderBalance;
 function renderRates(){let q=norm($('rateSearch')?.value||'');$('rateGrid').innerHTML=Object.keys(RATES).filter(x=>norm(x).includes(q)).map(x=>`<div class="rate"><b>${x}</b><span>${money(RATES[x])}</span></div>`).join('')}
 $('rateSearch').oninput=renderRates;
 function resetNewInvoice(){
@@ -152,6 +322,7 @@ function showPage(id){
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));
   document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   if(id==='history')renderHistory();
+  if(id==='balance')renderBalance();
   if(id==='rates')renderRates();
 }
 document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{
