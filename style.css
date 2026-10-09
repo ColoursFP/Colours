@@ -44,3 +44,19 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .login-help{font-size:12px!important;line-height:1.5;margin-bottom:0!important}
 .logout-nav{border-color:#ed087f!important;color:#fff!important}
 [hidden]{display:none!important}
+
+/* V13: robust responsive login overlay; prevents full-width stretched login fields */
+.login-screen[hidden]{display:none!important}
+.login-screen{position:fixed!important;inset:0!important;z-index:1000!important;display:grid;place-items:center;padding:20px!important;background:rgba(5,24,44,.62)!important;backdrop-filter:blur(4px)}
+.login-card{display:block!important;width:min(100%,430px)!important;max-width:430px!important;min-width:0!important;margin:auto!important;padding:28px!important;border-radius:18px!important;background:#fff!important;box-shadow:0 20px 60px rgba(0,0,0,.28)!important;text-align:center!important;overflow:hidden}
+.login-logo{display:block!important;width:88px!important;height:88px!important;max-width:88px!important;object-fit:contain!important;margin:0 auto 12px!important}
+.login-card h1{font-size:24px!important;line-height:1.25!important;margin:0 0 8px!important}
+.login-card>p{margin:8px 0 20px!important}
+.login-card form{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:14px!important;width:100%!important;text-align:left!important}
+.login-card label{display:flex!important;flex-direction:column!important;width:100%!important;min-width:0!important;font-size:13px!important;gap:6px!important}
+.login-card input{display:block!important;width:100%!important;max-width:100%!important;min-width:0!important;height:44px!important;padding:11px 12px!important;border:1px solid #cbd7e3!important;border-radius:9px!important;background:#fff!important;font-size:15px!important}
+.login-card .btn{display:block!important;width:100%!important;max-width:100%!important;min-height:44px!important;margin:3px 0 0!important}
+.login-help{font-size:12px!important;line-height:1.5!important;margin:14px 0 0!important}
+.login-message{font-size:13px!important;line-height:1.45!important;overflow-wrap:anywhere!important}
+.login-nav{background:#ed087f!important;color:#fff!important;border-color:#ed087f!important}
+@media(max-width:520px){.login-screen{padding:14px!important}.login-card{padding:22px!important}.login-card h1{font-size:21px!important}}

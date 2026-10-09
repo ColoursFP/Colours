@@ -107,6 +107,7 @@ async function loadCloudInvoices(){
   renderHistory(); refreshPeriodYears(); renderBalance();
 }
 function initSupabase(){
+  if(supabaseClient) return;
   if(!configIsReady()){ $('loginMessage').textContent='Supabase setup required: add your Project URL and anon/publishable key to supabase-config.js.'; return; }
   if(!window.supabase?.createClient){ $('loginMessage').textContent='Could not load the Supabase client. Check your internet connection.'; return; }
   supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
@@ -115,17 +116,19 @@ function initSupabase(){
   });
   supabaseClient.auth.onAuthStateChange((_event,session)=>{
     if(session) activateSession(session);
-    else showLogin();
+    else { currentUser=null; cloudReady=false; $('logoutButton').hidden=true; $('loginNavButton').textContent='Login'; }
   });
 }
 function showLogin(message=''){
-  currentUser=null; cloudReady=false;
-  $('mainApp').hidden=true; $('loginScreen').style.display='grid';
-  if(message)$('loginMessage').textContent=message;
+  $('loginScreen').hidden=false; $('loginScreen').style.display='grid';
+  $('loginMessage').textContent=message || 'Sign in to sync invoices securely to the cloud.';
+  $('loginEmail').focus();
 }
+function hideLogin(){ $('loginScreen').hidden=true; $('loginScreen').style.display='none'; }
 async function activateSession(session){
   currentUser=session.user;
-  $('loginScreen').style.display='none'; $('mainApp').hidden=false;
+  hideLogin(); $('mainApp').hidden=false;
+  $('logoutButton').hidden=false; $('loginNavButton').textContent='Logged In';
   $('loginMessage').textContent='';
   try{ await loadCloudInvoices(); setupPeriodFilters(); renderBalance(); }
   catch(e){ console.error(e); $('loginMessage').textContent='Signed in, but could not load cloud invoices: '+e.message; }
@@ -424,11 +427,22 @@ $('loginForm').addEventListener('submit',async e=>{
   }catch(err){$('loginMessage').textContent=err.message||'Sign in failed.';}
   finally{$('loginButton').disabled=false;$('loginButton').textContent='Sign In';}
 });
+$('loginNavButton').addEventListener('click',()=>{
+  if(currentUser){ $('loginMessage').textContent='You are signed in. Use Sign Out to end this session.'; showLogin('You are signed in. Cloud sync is enabled.'); return; }
+  initSupabase();
+  showLogin(configIsReady()?'Enter your authorized portal email and password.':'Supabase setup required: check supabase-config.js.');
+});
 $('logoutButton').addEventListener('click',async()=>{
   if(supabaseClient)await supabaseClient.auth.signOut();
-  showLogin('You have signed out.');
+  currentUser=null; cloudReady=false; $('logoutButton').hidden=true; $('loginNavButton').textContent='Login';
+  hideLogin();
 });
+$('loginScreen').addEventListener('click',e=>{ if(e.target===$('loginScreen')) hideLogin(); });
 setup();
 initSupabase();
-showLogin(configIsReady()?'Please sign in to open the billing portal.':'Supabase setup required: configure supabase-config.js, then refresh.');
+// The billing interface remains available; login is opened only when the Login tab is clicked.
+if(configIsReady() && window.supabase?.createClient){
+  supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
+  supabaseClient.auth.getSession().then(({data})=>{ if(data?.session) activateSession(data.session); });
+}
 
