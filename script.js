@@ -56,6 +56,16 @@ $('addBtn').onclick=()=>{let r=rateFor($('sizeInput').value),q=Math.max(1,Number
 $('clearItems').onclick=()=>{items=[];renderItems();renderTotals()};
 $('discountInput').oninput=renderTotals;
 $('advanceInput').oninput=renderTotals;
+
+['discountInput','advanceInput'].forEach(id=>{
+  $(id).addEventListener('focus',()=>{
+    if($(id).value==='0') $(id).value='';
+  });
+  $(id).addEventListener('blur',()=>{
+    if($(id).value.trim()==='') $(id).value='0';
+    renderTotals();
+  });
+});
 function renderItems(){$('itemsBody').innerHTML=items.length?items.map((x,i)=>`<tr><td>${i+1}</td><td>${x.size}</td><td>${money(x.rate)}</td><td>${x.qty}</td><td>${money(x.rate*x.qty)}</td><td><button class="danger" onclick="removeItem(${i})">Delete</button></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No items added.</td></tr>'}
 function removeItem(i){items.splice(i,1);renderItems();renderTotals()}
 function totals(){
@@ -80,7 +90,21 @@ function renderTotals(){
 }
 function currentInvoice(){let t=totals();return{id:$('invoiceNo').value||invoiceNo(),date:$('invoiceDate').value,name:$('customerName').value.trim()||'Walk-in Customer',phone:$('customerPhone').value.trim(),items:[...items],discount:t.p,total:t.total}}
 $('saveBtn').onclick=()=>{if(!items.length)return alert('Add at least one item.');let inv=currentInvoice(),i=history.findIndex(x=>x.id===inv.id);if(i>=0)history[i]=inv;else history.unshift(inv);localStorage.setItem('cfp_invoices',JSON.stringify(history));renderHistory();alert('Invoice saved successfully.')};
-function loadInvoice(id){let x=history.find(v=>v.id===id);if(!x)return;items=x.items||[];$('invoiceNo').value=x.id;$('invoiceDate').value=x.date;$('customerName').value=x.name;$('customerPhone').value=x.phone;$('discountInput').value=x.discount;showPage('invoice');renderItems();renderTotals()}
+function loadInvoice(id){
+  let x=history.find(v=>v.id===id);
+  if(!x)return;
+  showPage('invoice');
+  items=x.items||[];
+  $('invoiceNo').value=x.id;
+  $('invoiceDate').value=x.date;
+  $('customerName').value=x.name;
+  $('customerPhone').value=x.phone;
+  $('discountInput').value=x.discount||0;
+  $('advanceInput').value=x.advance||0;
+  $('paymentMethod').value=x.paymentMethod||'Cash';
+  renderItems();
+  renderTotals();
+}
 function deleteInvoice(id){if(!confirm('Delete this saved invoice?'))return;history=history.filter(x=>x.id!==id);localStorage.setItem('cfp_invoices',JSON.stringify(history));renderHistory()}
 function renderHistory(){let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>norm(x.id+' '+x.name+' '+x.phone).includes(q));$('historyBody').innerHTML=rows.length?rows.map(x=>`<tr><td>${x.id}</td><td>${x.date}</td><td>${x.name}</td><td>${x.phone||'-'}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${x.id}')">Open</button> <button class="danger" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
 $('historySearch').oninput=renderHistory;
@@ -104,17 +128,18 @@ function resetNewInvoice(){
 }
 
 function showPage(id){
-  if(id==='invoice'){
-    resetNewInvoice();
-  }
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));
   document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   if(id==='history')renderHistory();
   if(id==='rates')renderRates();
 }
 document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{
-  if(b.dataset.page==='invoice') showPage('invoice');
-  else showPage(b.dataset.page);
+  if(b.dataset.page==='invoice'){
+    resetNewInvoice();
+    showPage('invoice');
+  } else {
+    showPage(b.dataset.page);
+  }
 });
 $('printBtn').onclick=()=>{if(!items.length)return alert('Add at least one item. Save the invoice first if you want it in history.');printInvoice(currentInvoice())};
 function printInvoice(inv){let t=totals(),rows=inv.items.map((x,i)=>`<tr><td>${i+1}</td><td>${x.size}</td><td>${x.qty}</td><td>${money(x.rate)}</td><td>${money(x.rate*x.qty)}</td></tr>`).join('');let w=open('','_blank');w.document.write(`<!doctype html><html><head><title>${inv.id}</title><style>*{box-sizing:border-box}body{font-family:Arial;color:#18212b}.page{max-width:850px;margin:auto;padding:30px}.head{display:flex;gap:18px;border-bottom:4px solid #ed087f;padding-bottom:15px}.head img{width:95px;height:95px;object-fit:cover;border-radius:50%}h1{margin:5px 0;color:#07345e;text-transform:uppercase}.tag{color:#ed087f;font-weight:bold}.biz{font-size:12px;line-height:1.5;margin-top:6px}.meta{display:flex;justify-content:space-between;background:#f1f5f8;padding:14px;margin:20px 0;border-radius:8px}table{width:100%;border-collapse:collapse}th,td{padding:11px;border-bottom:1px solid #ddd;text-align:left}th{background:#07345e;color:#fff}.totals{margin-left:auto;width:320px;margin-top:20px}.totals div{display:flex;justify-content:space-between;padding:7px}.final{border-top:2px solid #07345e;margin-top:5px;padding-top:12px;font-size:21px;font-weight:bold;color:#ed087f}.footer{text-align:center;margin-top:45px;border-top:1px solid #ddd;padding-top:14px;font-size:12px;color:#667}@media print{.page{padding:10mm}}</style></head><body><div class="page"><div class="head"><img src="assets/logo-mark.jpg"><div><h1>Colours Flex Printing</h1><div class="tag">COLOURS YOUR IMAGINATION</div><div class="biz">Vinyl, Frontlit, lighting boards & flex printing<br>Besides Muthooth Finance, 1st Floor, V.T.Nagar Mall, Chintapally, Nalgonda - 508250<br>Phone: 77299 47523 | Email: coloursdigital4u@gmail.com</div></div></div><div class="meta"><div><b>Bill To:</b><br>${inv.name}<br>${inv.phone}</div><div><b>Invoice:</b> ${inv.id}<br><b>Date:</b> ${inv.date}</div></div><table><thead><tr><th>#</th><th>Size</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(t.sub)}</b></div><div><span>Discount (${t.p}%)</span><b>-${money(t.d)}</b></div><div class="final"><span>FINAL TOTAL</span><span>${money(t.total)}</span></div><div><span>Advance (${inv.paymentMethod})</span><b>${money(t.advance)}</b></div><div><span>BALANCE DUE</span><b>${money(t.balance)}</b></div></div><div class="footer">Thank you for your business!<br>Colours Flex Printing — Colours Your Imagination</div></div><script>onload=()=>setTimeout(()=>print(),400)<\/script></body></html>`);w.document.close()}
