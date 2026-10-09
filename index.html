@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Colours Flex Printing | Billing</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 <div class="app">
@@ -106,8 +106,30 @@
     <div class="card balance-metric"><span>Total Invoice Value</span><strong id="totalInvoiceValue">₹0.00</strong></div>
   </div>
   <div class="card">
-    <div class="section-title"><h2>Invoice Balances</h2><input id="balanceSearch" class="small-search" placeholder="Search invoice/customer"></div>
+    <div class="section-title balance-heading">
+      <h2>Balance & Transactions</h2>
+      <div class="balance-filters">
+        <label>Period
+          <select id="periodFilter">
+            <option value="all">All transactions</option>
+            <option value="month">Monthly</option>
+            <option value="year">Yearly</option>
+          </select>
+        </label>
+        <label id="monthFilterWrap">Month
+          <input id="monthFilter" type="month">
+        </label>
+        <label id="yearFilterWrap">Year
+          <select id="yearFilter"></select>
+        </label>
+        <input id="balanceSearch" class="small-search" placeholder="Search invoice/customer">
+      </div>
+    </div>
     <div class="table-wrap"><table><thead><tr><th>Invoice Number</th><th>Customer</th><th>Order Details</th><th>Invoice Total</th><th>Collected</th><th>Pending</th><th>Last Payment</th></tr></thead><tbody id="balanceBody"></tbody></table></div>
+  </div>
+  <div class="card">
+    <div class="section-title"><h2>Payment Transactions</h2><span id="transactionCount">0 transactions</span></div>
+    <div class="table-wrap"><table><thead><tr><th>Date & Time</th><th>Invoice</th><th>Customer</th><th>Payment Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody id="transactionsBody"></tbody></table></div>
   </div>
   <div id="balanceDetail" class="card balance-detail" hidden></div>
 </section>
@@ -117,5 +139,5 @@
   <div id="rateGrid" class="rate-grid"></div></div>
 </section>
 </div>
-<script src="script.js"></script>
+<script src="script.js?v=11"></script>
 </body></html>
