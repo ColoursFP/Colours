@@ -49,7 +49,14 @@
     <div class="section-title"><h2>Items</h2><button id="clearItems" class="link-btn">Clear Items</button></div>
     <div class="table-wrap"><table><thead><tr><th>#</th><th>Size</th><th>Rate</th><th>Qty</th><th>Amount</th><th></th></tr></thead><tbody id="itemsBody"></tbody></table></div>
   </div>
-
+<div class="card discount-card">
+      <h2>Discount</h2>
+      <div class="discount-box">
+        <label>Discount %
+          <input id="discountInput" type="number" min="0" max="100" step=".01" value="0">
+        </label>
+        <div><span>Discount Amount</span><b id="discountAmount">₹0.00</b></div>
+      </div>
   <div class="grid two bottom-grid">
     <div class="card payment-card">
       <h2>Payment Details</h2>
@@ -73,14 +80,6 @@
         <span>Balance Due <b id="balanceDue">₹0.00</b></span>
       </div>
     </div>
-    <div class="card discount-card">
-      <h2>Discount</h2>
-      <div class="discount-box">
-        <label>Discount %
-          <input id="discountInput" type="number" min="0" max="100" step=".01" value="0">
-        </label>
-        <div><span>Discount Amount</span><b id="discountAmount">₹0.00</b></div>
-      </div>
     </div>
   </div>
 
