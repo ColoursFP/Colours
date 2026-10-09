@@ -31,3 +31,16 @@ body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;ba
 .balance-filters .small-search{min-width:190px}
 #monthFilterWrap,#yearFilterWrap{display:none}
 @media(max-width:800px){.balance-summary{grid-template-columns:1fr!important}.balance-filters{width:100%;align-items:stretch}.balance-filters label,.balance-filters input{flex:1;min-width:140px}.balance-filters .small-search{max-width:none;width:100%}}
+
+/* V12 secure portal login */
+.login-screen{min-height:100vh;display:grid;place-items:center;padding:24px;background:linear-gradient(135deg,#eaf1f8,#f7f9fc)}
+.login-card{width:min(100%,430px);background:#fff;padding:30px;border-radius:20px;box-shadow:0 18px 50px rgba(5,35,65,.14);text-align:center}
+.login-logo{width:82px;height:82px;object-fit:contain;border-radius:16px;margin-bottom:12px}
+.login-card h1{margin:0;color:#092849;font-size:25px}.login-card>p{color:#66788a;margin:8px 0 24px}
+.login-card form{display:grid;gap:14px;text-align:left}.login-card label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:700}
+.login-card input{padding:12px;border:1px solid #cbd7e3;border-radius:9px;font:inherit;width:100%}
+.login-card .btn{width:100%;margin-top:5px;min-height:44px}
+.login-message{margin-top:14px;color:#c12656;font-size:13px;overflow-wrap:anywhere}
+.login-help{font-size:12px!important;line-height:1.5;margin-bottom:0!important}
+.logout-nav{border-color:#ed087f!important;color:#fff!important}
+[hidden]{display:none!important}

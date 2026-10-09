@@ -46,23 +46,91 @@ const RATES={
 };
 let items=[];
 function readSavedInvoices(){
-  try {
-    const raw=localStorage.getItem('cfp_invoices');
-    const parsed=raw?JSON.parse(raw):[];
-    return Array.isArray(parsed)?parsed:[];
-  } catch(e) { console.error('Could not read saved invoices',e); return []; }
+  try { const parsed=JSON.parse(localStorage.getItem('cfp_invoices')||'[]'); return Array.isArray(parsed)?parsed:[]; }
+  catch(e){ console.error('Could not read local invoices',e); return []; }
 }
 let history=readSavedInvoices();
-function persistInvoices(){
-  try {
-    localStorage.setItem('cfp_invoices',JSON.stringify(history));
+let supabaseClient=null;
+let currentUser=null;
+let cloudReady=false;
+function configIsReady(){
+  return !!(window.COLOURS_SUPABASE_URL && window.COLOURS_SUPABASE_ANON_KEY &&
+    window.COLOURS_SUPABASE_URL.startsWith('https://') &&
+    !window.COLOURS_SUPABASE_URL.includes('PASTE_') &&
+    !window.COLOURS_SUPABASE_ANON_KEY.includes('PASTE_'));
+}
+function localPersist(){
+  try { localStorage.setItem('cfp_invoices',JSON.stringify(history)); return true; }
+  catch(e){ console.error(e); alert('Could not save locally in this browser.'); return false; }
+}
+async function persistInvoices(){
+  localPersist();
+  if(!supabaseClient || !currentUser || !cloudReady) return true;
+  try{
+    const rows=history.map(inv=>({
+      id:String(inv.id),
+      invoice_date:inv.date||new Date().toISOString().slice(0,10),
+      customer_name:inv.name||'Walk-in Customer',
+      customer_phone:inv.phone||'',
+      total:Number(inv.total)||0,
+      collected:Number(inv.advance)||0,
+      pending:Math.max(0,(Number(inv.total)||0)-(Number(inv.advance)||0)),
+      invoice_data:inv,
+      updated_at:new Date().toISOString(),
+      created_by:currentUser.id
+    }));
+    if(rows.length){
+      const {error}=await supabaseClient.from('invoices').upsert(rows,{onConflict:'id'});
+      if(error) throw error;
+    }
     return true;
-  } catch(e) {
-    alert('Could not save invoices in this browser. Check browser storage/privacy settings.');
-    console.error(e);
+  }catch(e){
+    console.error('Supabase invoice sync failed',e);
+    alert('Invoice saved in this browser, but cloud sync failed: '+e.message);
     return false;
   }
 }
+async function loadCloudInvoices(){
+  if(!supabaseClient || !currentUser) return;
+  const {data,error}=await supabaseClient.from('invoices').select('invoice_data').order('invoice_date',{ascending:false});
+  if(error) throw error;
+  const cloud=(data||[]).map(row=>row.invoice_data).filter(Boolean);
+  // Merge by invoice ID so this browser's existing invoices are not silently discarded.
+  const map=new Map();
+  cloud.forEach(inv=>map.set(String(inv.id),inv));
+  history.forEach(inv=>{if(!map.has(String(inv.id)))map.set(String(inv.id),inv);});
+  history=[...map.values()].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  localPersist();
+  cloudReady=true;
+  // Upload any browser-only invoices into the cloud after merging, so they are not left local-only.
+  await persistInvoices();
+  renderHistory(); refreshPeriodYears(); renderBalance();
+}
+function initSupabase(){
+  if(!configIsReady()){ $('loginMessage').textContent='Supabase setup required: add your Project URL and anon/publishable key to supabase-config.js.'; return; }
+  if(!window.supabase?.createClient){ $('loginMessage').textContent='Could not load the Supabase client. Check your internet connection.'; return; }
+  supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
+  supabaseClient.auth.getSession().then(({data})=>{
+    if(data?.session) activateSession(data.session);
+  });
+  supabaseClient.auth.onAuthStateChange((_event,session)=>{
+    if(session) activateSession(session);
+    else showLogin();
+  });
+}
+function showLogin(message=''){
+  currentUser=null; cloudReady=false;
+  $('mainApp').hidden=true; $('loginScreen').style.display='grid';
+  if(message)$('loginMessage').textContent=message;
+}
+async function activateSession(session){
+  currentUser=session.user;
+  $('loginScreen').style.display='none'; $('mainApp').hidden=false;
+  $('loginMessage').textContent='';
+  try{ await loadCloudInvoices(); setupPeriodFilters(); renderBalance(); }
+  catch(e){ console.error(e); $('loginMessage').textContent='Signed in, but could not load cloud invoices: '+e.message; }
+}
+
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(n);
 const norm=s=>String(s||'').toLowerCase().replace(/\\s+/g,'').replace(/[×*]/g,'x');
@@ -110,7 +178,7 @@ function renderTotals(){
   $('itemCount').textContent=items.length+' item'+(items.length===1?'':'s')
 }
 function currentInvoice(){let t=totals();return{id:$('invoiceNo').value||invoiceNo(),date:$('invoiceDate').value,name:$('customerName').value.trim()||'Walk-in Customer',phone:$('customerPhone').value.trim(),items:[...items],discount:t.p,subtotal:t.sub,discountAmount:t.d,total:t.total,advance:t.advance,balance:t.balance,paymentMethod:$('paymentMethod').value||'Cash'}}
-$('saveBtn').onclick=()=>{
+$('saveBtn').onclick=async()=>{
   if(!items.length)return alert('Add at least one item.');
   let inv=currentInvoice(),i=history.findIndex(x=>x.id===inv.id),now=new Date().toISOString();
   if(i>=0){
@@ -126,7 +194,7 @@ $('saveBtn').onclick=()=>{
     inv.createdAt=now;
     history.unshift(inv);
   }
-  persistInvoices();
+  await persistInvoices();
   renderHistory();refreshPeriodYears();renderBalance();alert('Invoice saved successfully.');
 };
 function loadInvoice(id){
@@ -144,9 +212,18 @@ function loadInvoice(id){
   renderItems();
   renderTotals();
 }
-function deleteInvoice(id){if(!confirm('Delete this saved invoice?'))return;history=history.filter(x=>x.id!==id);persistInvoices();renderHistory();refreshPeriodYears();renderBalance()}
+async function deleteInvoice(id){
+  if(!confirm('Delete this saved invoice?'))return;
+  history=history.filter(x=>x.id!==id);
+  localPersist();
+  if(supabaseClient&&currentUser&&cloudReady){
+    const {error}=await supabaseClient.from('invoices').delete().eq('id',String(id));
+    if(error){alert('Deleted locally, but cloud delete failed: '+error.message);return;}
+  }
+  renderHistory();refreshPeriodYears();renderBalance();
+}
 function renderHistory(){let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>norm(x.id+' '+x.name+' '+x.phone).includes(q));$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${x.id}</td><td>${x.date}</td><td>${x.name}</td><td>${x.phone||'-'}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${x.id}')">Open</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${x.id}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
-function collectPayment(id){
+async function collectPayment(id){
   let inv=history.find(x=>x.id===id); if(!inv)return;
   let total=Number(inv.total)||0, paid=Number(inv.advance)||0, balance=Math.max(0,total-paid);
   if(balance<=0){alert('This invoice is already fully paid.');return;}
@@ -169,7 +246,7 @@ function collectPayment(id){
   inv.advance=paid+amount;
   inv.balance=Math.max(0,total-inv.advance);
   inv.paymentMethod=method;
-  persistInvoices();
+  await persistInvoices();
   renderHistory();refreshPeriodYears();renderBalance();
   alert('Payment recorded: '+money(amount)+'\nRecorded at: '+new Date(now).toLocaleString()+'\nBalance due: '+money(inv.balance));
 }
@@ -335,4 +412,23 @@ document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{
 });
 $('printBtn').onclick=()=>{if(!items.length)return alert('Add at least one item. Save the invoice first if you want it in history.');printInvoice(currentInvoice())};
 function printInvoice(inv){let t=totals(),rows=inv.items.map((x,i)=>`<tr><td>${i+1}</td><td>${x.size}</td><td>${x.qty}</td><td>${money(x.rate)}</td><td>${money(x.rate*x.qty)}</td></tr>`).join('');let w=open('','_blank');w.document.write(`<!doctype html><html><head><title>${inv.id}</title><style>*{box-sizing:border-box}body{font-family:Arial;color:#18212b}.page{max-width:850px;margin:auto;padding:30px}.head{display:flex;gap:18px;border-bottom:4px solid #ed087f;padding-bottom:15px}.head img{width:95px;height:95px;object-fit:cover;border-radius:50%}h1{margin:5px 0;color:#07345e;text-transform:uppercase}.tag{color:#ed087f;font-weight:bold}.biz{font-size:12px;line-height:1.5;margin-top:6px}.meta{display:flex;justify-content:space-between;background:#f1f5f8;padding:14px;margin:20px 0;border-radius:8px}table{width:100%;border-collapse:collapse}th,td{padding:11px;border-bottom:1px solid #ddd;text-align:left}th{background:#07345e;color:#fff}.totals{margin-left:auto;width:320px;margin-top:20px}.totals div{display:flex;justify-content:space-between;padding:7px}.final{border-top:2px solid #07345e;margin-top:5px;padding-top:12px;font-size:21px;font-weight:bold;color:#ed087f}.footer{text-align:center;margin-top:45px;border-top:1px solid #ddd;padding-top:14px;font-size:12px;color:#667}@media print{.page{padding:10mm}}</style></head><body><div class="page"><div class="head"><img src="assets/logo-mark.jpg"><div><h1>Colours Flex Printing</h1><div class="tag">COLOURS YOUR IMAGINATION</div><div class="biz">Vinyl, Frontlit, lighting boards & flex printing<br>Besides Muthooth Finance, 1st Floor, V.T.Nagar Mall, Chintapally, Nalgonda - 508250<br>Phone: 77299 47523 | Email: coloursdigital4u@gmail.com</div></div></div><div class="meta"><div><b>Bill To:</b><br>${inv.name}<br>${inv.phone}</div><div><b>Invoice:</b> ${inv.id}<br><b>Date:</b> ${inv.date}</div></div><table><thead><tr><th>#</th><th>Size</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(t.sub)}</b></div><div><span>Discount (${t.p}%)</span><b>-${money(t.d)}</b></div><div class="final"><span>INVOICE TOTAL</span><span>${money(t.total)}</span></div><div><span>Advance (${inv.paymentMethod||'Cash'})</span><b>${money(t.advance)}</b></div><div><span>BALANCE DUE</span><b>${money(t.balance)}</b></div></div><div class="footer">Thank you for your business!<br>Colours Flex Printing — Colours Your Imagination</div></div><script>onload=()=>setTimeout(()=>print(),400)<\/script></body></html>`);w.document.close()}
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  if(!supabaseClient){initSupabase();if(!supabaseClient)return;}
+  const email=$('loginEmail').value.trim(),password=$('loginPassword').value;
+  $('loginButton').disabled=true;$('loginButton').textContent='Signing in…';
+  try{
+    const {data,error}=await supabaseClient.auth.signInWithPassword({email,password});
+    if(error)throw error;
+    if(data.session)await activateSession(data.session);
+  }catch(err){$('loginMessage').textContent=err.message||'Sign in failed.';}
+  finally{$('loginButton').disabled=false;$('loginButton').textContent='Sign In';}
+});
+$('logoutButton').addEventListener('click',async()=>{
+  if(supabaseClient)await supabaseClient.auth.signOut();
+  showLogin('You have signed out.');
+});
 setup();
+initSupabase();
+showLogin(configIsReady()?'Please sign in to open the billing portal.':'Supabase setup required: configure supabase-config.js, then refresh.');
+
