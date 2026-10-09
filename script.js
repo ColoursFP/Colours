@@ -116,7 +116,7 @@ function initSupabase(){
   });
   supabaseClient.auth.onAuthStateChange((_event,session)=>{
     if(session) activateSession(session);
-    else { currentUser=null; cloudReady=false; $('logoutButton').hidden=true; $('loginNavButton').textContent='Login'; }
+    else { currentUser=null; cloudReady=false; $('logoutButton').hidden=true; $('loginNavButton').textContent='Login'; updateAuthVisibility(); }
   });
 }
 function showLogin(message=''){
@@ -127,6 +127,7 @@ function showLogin(message=''){
 function hideLogin(){ $('loginScreen').hidden=true; $('loginScreen').style.display='none'; }
 async function activateSession(session){
   currentUser=session.user;
+  updateAuthVisibility();
   hideLogin(); $('mainApp').hidden=false;
   $('logoutButton').hidden=false; $('loginNavButton').textContent='Logged In';
   $('loginMessage').textContent='';
@@ -398,7 +399,22 @@ function resetNewInvoice(){
   renderTotals();
 }
 
+function updateAuthVisibility(){
+  const balanceNav=$('balanceNav');
+  if(balanceNav) balanceNav.hidden=!currentUser;
+  const balancePage=$('balance');
+  if(balancePage && !currentUser && balancePage.classList.contains('active')){
+    balancePage.classList.remove('active');
+    $('invoice')?.classList.add('active');
+    document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page==='invoice'));
+  }
+  $('mainApp').hidden=false;
+}
 function showPage(id){
+  if(id==='balance' && !currentUser){
+    showLogin('Please sign in to view balances and payment transactions.');
+    return;
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));
   document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   if(id==='history')renderHistory();
@@ -435,14 +451,14 @@ $('loginNavButton').addEventListener('click',()=>{
 $('logoutButton').addEventListener('click',async()=>{
   if(supabaseClient)await supabaseClient.auth.signOut();
   currentUser=null; cloudReady=false; $('logoutButton').hidden=true; $('loginNavButton').textContent='Login';
+  updateAuthVisibility();
   hideLogin();
 });
 $('loginScreen').addEventListener('click',e=>{ if(e.target===$('loginScreen')) hideLogin(); });
 setup();
+// Show invoice/rate-card interface while signed out, but protect the Balance tab.
+$('mainApp').hidden=false;
+$('loginScreen').hidden=true;
+$('loginScreen').style.display='none';
+updateAuthVisibility();
 initSupabase();
-// The billing interface remains available; login is opened only when the Login tab is clicked.
-if(configIsReady() && window.supabase?.createClient){
-  supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
-  supabaseClient.auth.getSession().then(({data})=>{ if(data?.session) activateSession(data.session); });
-}
-
