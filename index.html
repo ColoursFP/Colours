@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Colours Flex Printing | Billing</title>
-<link rel="stylesheet" href="style.css?v=12">
+<link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
-<section id="loginScreen" class="login-screen">
+<section id="loginScreen" class="login-screen" hidden>
   <div class="login-card">
     <img src="assets/logo-mark.jpg" alt="Colours Flex Printing logo" class="login-logo">
     <h1>Colours Flex Printing</h1>
@@ -28,7 +28,8 @@
     <button data-page="history" class="nav">Invoice History</button>
     <button data-page="balance" class="nav" id="balanceNav">Balance</button>
     <button data-page="rates" class="nav">Rate Card</button>
-    <button id="logoutButton" class="nav logout-nav" type="button">Sign Out</button>
+    <button id="loginNavButton" class="nav login-nav" type="button">Login</button>
+    <button id="logoutButton" class="nav logout-nav" type="button" hidden>Sign Out</button>
   </nav>
 </header>
 
@@ -155,6 +156,6 @@
 </section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js?v=12"></script>
-<script src="script.js?v=12"></script>
+<script src="supabase-config.js?v=13"></script>
+<script src="script.js?v=13"></script>
 </body></html>
