@@ -44,6 +44,11 @@ const RATES={
   "10x20": 3400,
   "10x30": 4800
 };
+const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iran Frame"];
+function readMaterialRates(){try{return JSON.parse(localStorage.getItem('cfp_material_rates')||'{}')||{};}catch(e){return {};}}
+let materialRates=readMaterialRates();
+function materialRateKey(type,size){return String(type||FLEX_TYPES[0])+'|'+norm(size);}
+function rateFor(s,type=$('flexTypeInput')?.value||FLEX_TYPES[0]){const key=materialRateKey(type,s);return Object.prototype.hasOwnProperty.call(materialRates,key)?Number(materialRates[key]):(RATES[norm(s)]??null);}
 let items=[];
 function readSavedInvoices(){
   try { const parsed=JSON.parse(localStorage.getItem('cfp_invoices')||'[]'); return Array.isArray(parsed)?parsed:[]; }
@@ -53,6 +58,7 @@ let history=readSavedInvoices();
 let supabaseClient=null;
 let currentUser=null;
 let cloudReady=false;
+let pendingPageAfterLogin=null;
 function configIsReady(){
   return !!(window.COLOURS_SUPABASE_URL && window.COLOURS_SUPABASE_ANON_KEY &&
     window.COLOURS_SUPABASE_URL.startsWith('https://') &&
@@ -116,7 +122,13 @@ function initSupabase(){
   });
   supabaseClient.auth.onAuthStateChange((_event,session)=>{
     if(session) activateSession(session);
-    else { currentUser=null; cloudReady=false; $('logoutButton').hidden=true; $('loginNavButton').textContent='Login'; updateAuthVisibility(); }
+    else {
+      currentUser=null; cloudReady=false;
+      if($('logoutButton')) $('logoutButton').hidden=true;
+      if($('loginNavButton')) $('loginNavButton').textContent='Login';
+      if($('balanceNav')) $('balanceNav').classList.remove('active');
+      if(typeof showPage==='function' && $('invoice')) showPage('invoice');
+    }
   });
 }
 function showLogin(message=''){
@@ -127,46 +139,44 @@ function showLogin(message=''){
 function hideLogin(){ $('loginScreen').hidden=true; $('loginScreen').style.display='none'; }
 async function activateSession(session){
   currentUser=session.user;
-  updateAuthVisibility();
   hideLogin(); $('mainApp').hidden=false;
   $('logoutButton').hidden=false; $('loginNavButton').textContent='Logged In';
   $('loginMessage').textContent='';
   try{ await loadCloudInvoices(); setupPeriodFilters(); renderBalance(); }
   catch(e){ console.error(e); $('loginMessage').textContent='Signed in, but could not load cloud invoices: '+e.message; }
+  const destination=pendingPageAfterLogin;
+  pendingPageAfterLogin=null;
+  if(destination==='balance') showPage('balance');
 }
 
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:2}).format(n);
 const norm=s=>String(s||'').toLowerCase().replace(/\\s+/g,'').replace(/[×*]/g,'x');
-const rateFor=s=>RATES[norm(s)]??null;
+
 function invoiceNo(){return 'CFP-'+new Date().toISOString().slice(0,10).replaceAll('-','')+'-'+String(Date.now()).slice(-5)}
-function setup(){ $('invoiceDate').value=new Date().toISOString().slice(0,10);$('invoiceNo').value=invoiceNo();$('sizes').innerHTML=Object.keys(RATES).filter(x=>!x.includes('above')).map(x=>`<option value="${x}">`).join('');renderItems();renderTotals();renderRates();renderHistory();setupPeriodFilters();renderBalance();}
-$('sizeInput').addEventListener('input',()=>{let r=rateFor($('sizeInput').value);$('rateInput').value=r===null?'':money(r);$('sizeMessage').textContent=r===null&&$('sizeInput').value?'Size not found in rate card.':r!==null?'Rate found: '+money(r):'';});
-$('addBtn').onclick=()=>{let r=rateFor($('sizeInput').value),q=Math.max(1,Number($('qtyInput').value)||1);if(r===null)return alert('Please enter a size from the rate card.');items.push({size:norm($('sizeInput').value),rate:r,qty:q});$('sizeInput').value='';$('rateInput').value='';$('qtyInput').value=1;$('sizeMessage').textContent='';renderItems();renderTotals()};
+function setup(){ $('invoiceDate').value=new Date().toISOString().slice(0,10);$('invoiceNo').value=invoiceNo();$('sizes').innerHTML=Object.keys(RATES).filter(x=>!x.includes('above')).map(x=>`<option value="${x}">`).join('');$('flexTypeInput').innerHTML=FLEX_TYPES.map(x=>`<option value="${x}">${x}</option>`).join('');$('rateTypeSelect').innerHTML=FLEX_TYPES.map(x=>`<option value="${x}">${x}</option>`).join('');$('rateSizeSelect').innerHTML=Object.keys(RATES).filter(x=>!x.includes('above')).map(x=>`<option value="${x}">${x}</option>`).join('');renderItems();renderTotals();renderRates();renderMaterialRateEditor();renderHistory();setupPeriodFilters();renderBalance();}
+function updateItemRate(){ $('sizeMessage').textContent='Enter the size and rate manually. Existing rates remain available in Rate Card.'; }
+$('sizeInput').addEventListener('input',()=>{});
+$('flexTypeInput').addEventListener('change',()=>{});
+$('addBtn').onclick=()=>{let rawSize=$('sizeInput').value.trim(),type=$('flexTypeInput').value||FLEX_TYPES[0],r=Number($('rateInput').value),q=Math.max(1,Number($('qtyInput').value)||1);if(!rawSize)return alert('Please enter a size.');if($('rateInput').value.trim()===''||!Number.isFinite(r)||r<0)return alert('Please enter a valid rate.');items.push({size:rawSize,flexType:type,rate:r,qty:q});$('sizeInput').value='';$('rateInput').value='';$('qtyInput').value=1;$('sizeMessage').textContent='';renderItems();renderTotals()};
 $('clearItems').onclick=()=>{items=[];renderItems();renderTotals()};
 $('qtyInput').addEventListener('focus',()=>{if($('qtyInput').value==='1'||$('qtyInput').value==='0')$('qtyInput').value='';});
 $('qtyInput').addEventListener('blur',()=>{if(!$('qtyInput').value.trim()||Number($('qtyInput').value)<1)$('qtyInput').value='1';});
 $('discountInput').oninput=renderTotals;
 $('advanceInput').oninput=renderTotals;
 
-['discountInput','advanceInput'].forEach(id=>{
-  $(id).addEventListener('focus',()=>{
-    if($(id).value==='0') $(id).value='';
-  });
-  $(id).addEventListener('blur',()=>{
-    if($(id).value.trim()==='') $(id).value='0';
-    renderTotals();
-  });
-});
-function renderItems(){$('itemsBody').innerHTML=items.length?items.map((x,i)=>`<tr><td>${i+1}</td><td>${x.size}</td><td>${money(x.rate)}</td><td>${x.qty}</td><td>${money(x.rate*x.qty)}</td><td><button class="danger" onclick="removeItem(${i})">Delete</button></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No items added.</td></tr>'}
+$('advanceInput').addEventListener('focus',()=>{ if($('advanceInput').value==='0') $('advanceInput').value=''; });
+$('advanceInput').addEventListener('blur',()=>{ if($('advanceInput').value.trim()==='') $('advanceInput').value='0'; renderTotals(); });
+function renderItems(){$('itemsBody').innerHTML=items.length?items.map((x,i)=>`<tr><td>${i+1}</td><td>${x.size}</td><td>${x.flexType||'Normal Flex'}</td><td>${money(x.rate)}</td><td>${x.qty}</td><td>${money(x.rate*x.qty)}</td><td><button class="danger" onclick="removeItem(${i})">Delete</button></td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:#7a8794">No items added.</td></tr>'}
 function removeItem(i){items.splice(i,1);renderItems();renderTotals()}
 function totals(){
-  let sub=items.reduce((s,x)=>s+x.rate*x.qty,0),
-      p=Math.min(100,Math.max(0,Number($('discountInput').value)||0)),
-      d=sub*p/100,
-      total=sub-d,
-      advance=Math.min(Math.max(0,Number($('advanceInput').value)||0),total),
-      balance=total-advance;
+  const sub=items.reduce((s,x)=>s+x.rate*x.qty,0);
+  const enteredDiscount=Math.max(0,Number($('discountInput').value)||0);
+  const d=Math.min(sub,enteredDiscount);
+  const p=sub>0?(d/sub)*100:0;
+  const total=Math.max(0,sub-d);
+  const advance=Math.min(Math.max(0,Number($('advanceInput').value)||0),total);
+  const balance=total-advance;
   return{sub,p,d,total,advance,balance}
 }
 function renderTotals(){
@@ -174,6 +184,7 @@ function renderTotals(){
   $('subtotal').textContent=money(t.sub);
   $('discountDisplay').textContent=money(t.d);
   $('discountAmount').textContent=money(t.d);
+  $('discountPercentDisplay').textContent=t.p.toFixed(2).replace(/\.?0+$/,'')+'%';
   $('finalPrice').textContent=money(t.balance);
   $('grandTotal').textContent=money(t.balance);
   $('advanceDisplay').textContent=money(t.advance);
@@ -181,57 +192,55 @@ function renderTotals(){
   $('balanceDue').textContent=money(t.balance);
   $('itemCount').textContent=items.length+' item'+(items.length===1?'':'s')
 }
-function currentInvoice(){let t=totals();return{id:$('invoiceNo').value||invoiceNo(),date:$('invoiceDate').value,name:$('customerName').value.trim()||'Walk-in Customer',phone:$('customerPhone').value.trim(),items:[...items],discount:t.p,subtotal:t.sub,discountAmount:t.d,total:t.total,advance:t.advance,balance:t.balance,paymentMethod:$('paymentMethod').value||'Cash'}}
-$('saveBtn').onclick=async()=>{
-  if(!items.length)return alert('Add at least one item.');
-  let inv=currentInvoice(),i=history.findIndex(x=>x.id===inv.id),now=new Date().toISOString();
+function currentInvoice(){let t=totals();return{id:$('invoiceNo').value||invoiceNo(),date:$('invoiceDate').value,name:$('customerName').value.trim()||'Walk-in Customer',phone:$('customerPhone').value.trim(),items:items.map(x=>({...x})),discount:t.p,discountPercent:t.p,subtotal:t.sub,discountAmount:t.d,total:t.total,advance:t.advance,balance:t.balance,paymentMethod:$('paymentMethod').value||'Cash'}}
+async function saveInvoiceRecord(inv){
+  const i=history.findIndex(x=>String(x.id)===String(inv.id)),now=new Date().toISOString();
   if(i>=0){
     const old=history[i];
     inv.payments=Array.isArray(old.payments)?old.payments:[];
     const oldPaid=Number(old.advance)||0;
     if(inv.advance>oldPaid) inv.payments.push({amount:inv.advance-oldPaid,method:inv.paymentMethod||'Cash',datetime:now,note:'Additional advance'});
     if(inv.advance<oldPaid){inv.advance=oldPaid;inv.balance=Math.max(0,inv.total-inv.advance);}
-    history[i]={...old,...inv};
+    history[i]={...old,...inv,hiddenFromHistory:false,updatedAt:now};
   } else {
     inv.payments=[];
     if(inv.advance>0)inv.payments.push({amount:inv.advance,method:inv.paymentMethod||'Cash',datetime:now,note:'Advance at invoice creation'});
-    inv.createdAt=now;
-    history.unshift(inv);
+    inv.createdAt=now;inv.hiddenFromHistory=false;history.unshift(inv);
   }
-  await persistInvoices();
-  renderHistory();refreshPeriodYears();renderBalance();alert('Invoice saved successfully.');
-};
+  const ok=await persistInvoices();
+  renderHistory();refreshPeriodYears();renderBalance();
+  return history.find(x=>String(x.id)===String(inv.id))||inv;
+}
 function loadInvoice(id){
   let x=history.find(v=>v.id===id);
   if(!x)return;
   showPage('invoice');
-  items=x.items||[];
+  items=(x.items||[]).map(it=>({...it,flexType:it.flexType||'Normal Flex'}));
   $('invoiceNo').value=x.id;
   $('invoiceDate').value=x.date;
   $('customerName').value=x.name;
   $('customerPhone').value=x.phone;
-  $('discountInput').value=x.discount||0;
+  $('discountInput').value=x.discountAmount!=null?x.discountAmount:(Number(x.subtotal||0)*(Number(x.discount||0)/100)||'');
   $('advanceInput').value=x.advance||0;
   $('paymentMethod').value=x.paymentMethod||'Cash';
   renderItems();
   renderTotals();
 }
 async function deleteInvoice(id){
-  if(!confirm('Delete this saved invoice?'))return;
-  history=history.filter(x=>x.id!==id);
-  localPersist();
-  if(supabaseClient&&currentUser&&cloudReady){
-    const {error}=await supabaseClient.from('invoices').delete().eq('id',String(id));
-    if(error){alert('Deleted locally, but cloud delete failed: '+error.message);return;}
-  }
+  if(!confirm('Hide this invoice from Invoice History? It will remain in Balance & Transactions for record keeping.'))return;
+  const inv=history.find(x=>String(x.id)===String(id));
+  if(!inv)return;
+  inv.hiddenFromHistory=true;
+  inv.hiddenFromHistoryAt=new Date().toISOString();
+  await persistInvoices();
   renderHistory();refreshPeriodYears();renderBalance();
 }
-function renderHistory(){let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>norm(x.id+' '+x.name+' '+x.phone).includes(q));$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${x.id}</td><td>${x.date}</td><td>${x.name}</td><td>${x.phone||'-'}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${x.id}')">Open</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${x.id}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
+function renderHistory(){let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>!x.hiddenFromHistory&&norm(x.id+' '+x.name+' '+x.phone).includes(q));$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${x.id}</td><td>${x.date}</td><td>${x.name}</td><td>${x.phone||'-'}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${x.id}')">Open</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${x.id}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
 async function collectPayment(id){
   let inv=history.find(x=>x.id===id); if(!inv)return;
   let total=Number(inv.total)||0, paid=Number(inv.advance)||0, balance=Math.max(0,total-paid);
   if(balance<=0){alert('This invoice is already fully paid.');return;}
-  let raw=prompt('Invoice: '+inv.id+'\nBalance due: '+money(balance)+'\nEnter amount received:');
+  let raw=prompt('Invoice: '+inv.id+'\nAlready collected: '+money(paid)+'\nBalance due: '+money(balance)+'\nEnter additional amount received:');
   if(raw===null)return;
   let amount=Number(raw);
   if(!Number.isFinite(amount)||amount<=0){alert('Enter a valid payment amount.');return;}
@@ -369,18 +378,23 @@ function renderBalance(){
 function showBalanceDetail(id){
   const inv=history.find(x=>x.id===id);if(!inv)return;
   const payments=Array.isArray(inv.payments)?inv.payments:[];
-  const itemsHtml=(inv.items||[]).map(it=>`<tr><td>${it.size}</td><td>${it.qty}</td><td>${money(it.rate)}</td><td>${money(it.rate*it.qty)}</td></tr>`).join('');
+  const itemsHtml=(inv.items||[]).map(it=>`<tr><td>${it.size}</td><td>${it.flexType||'Normal Flex'}</td><td>${it.qty}</td><td>${money(it.rate)}</td><td>${money(it.rate*it.qty)}</td></tr>`).join('');
   const paymentsHtml=payments.length?payments.map(p=>`<tr><td>${fmtDateTime(p.datetime)}</td><td>${p.method||'—'}</td><td>${p.note||'Payment'}</td><td>${money(p.amount)}</td></tr>`).join(''):'<tr><td colspan="4">No payment records are available for this invoice yet.</td></tr>';
   const el=$('balanceDetail');el.hidden=false;
   el.innerHTML=`<div class="section-title"><h2>Invoice ${inv.id}</h2><button class="btn secondary" onclick="document.getElementById('balanceDetail').hidden=true">Close</button></div>
   <p><b>Customer:</b> ${inv.name||'Walk-in Customer'} &nbsp; <b>Invoice date:</b> ${inv.date||'—'}</p>
-  <h3>Items Ordered</h3><div class="table-wrap"><table><thead><tr><th>Size</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${itemsHtml||'<tr><td colspan="4">No item details saved.</td></tr>'}</tbody></table></div>
+  <h3>Items Ordered</h3><div class="table-wrap"><table><thead><tr><th>Size</th><th>Flex Type</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${itemsHtml||'<tr><td colspan="5">No item details saved.</td></tr>'}</tbody></table></div>
   <div class="balance-detail-totals"><span>Invoice total (after discount): <b>${money(invoiceTotal(inv))}</b></span><span>Total collected: <b>${money(invoicePaid(inv))}</b></span><span>Balance pending: <b class="${invoiceBalance(inv)>0?'pending-text':'paid-text'}">${money(invoiceBalance(inv))}</b></span></div>
   <h3>Payment History</h3><div class="table-wrap"><table><thead><tr><th>Date & Time</th><th>Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody>${paymentsHtml}</tbody></table></div>`;
   el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 $('balanceSearch').oninput=renderBalance;
-function renderRates(){let q=norm($('rateSearch')?.value||'');$('rateGrid').innerHTML=Object.keys(RATES).filter(x=>norm(x).includes(q)).map(x=>`<div class="rate"><b>${x}</b><span>${money(RATES[x])}</span></div>`).join('')}
+function renderRates(){let q=norm($('rateSearch')?.value||''),type=$('rateTypeSelect')?.value||FLEX_TYPES[0];$('rateGrid').innerHTML=Object.keys(RATES).filter(x=>!x.includes('above')&&norm(x).includes(q)).map(x=>{const r=rateFor(x,type);return `<div class="rate"><b>${x} · ${type}</b><span>${money(r)}</span></div>`}).join('')}
+function renderMaterialRateEditor(){if(!$('rateTypeSelect'))return;const type=$('rateTypeSelect').value||FLEX_TYPES[0],size=$('rateSizeSelect').value||Object.keys(RATES)[0],r=rateFor(size,type);$('customRateInput').value=r===null?'':r;$('rateEditorNote').textContent=Object.prototype.hasOwnProperty.call(materialRates,materialRateKey(type,size))?'Custom rate saved for this material and size.':'Using existing default rate; enter a value to override it.';}
+$('rateTypeSelect').addEventListener('change',()=>{renderRates();renderMaterialRateEditor()});
+$('rateSizeSelect').addEventListener('change',renderMaterialRateEditor);
+$('saveCustomRateBtn').addEventListener('click',()=>{const type=$('rateTypeSelect').value,size=$('rateSizeSelect').value,raw=$('customRateInput').value.trim(),key=materialRateKey(type,size);if(raw===''||!Number.isFinite(Number(raw))||Number(raw)<0)return alert('Enter a valid rate of 0 or more.');materialRates[key]=Number(raw);localStorage.setItem('cfp_material_rates',JSON.stringify(materialRates));updateItemRate();renderRates();renderMaterialRateEditor();alert('Custom rate saved on this device for '+type+' · '+size+'.');});
+$('resetCustomRateBtn').addEventListener('click',()=>{const key=materialRateKey($('rateTypeSelect').value,$('rateSizeSelect').value);delete materialRates[key];localStorage.setItem('cfp_material_rates',JSON.stringify(materialRates));updateItemRate();renderRates();renderMaterialRateEditor();});
 $('rateSearch').oninput=renderRates;
 function resetNewInvoice(){
   items=[];
@@ -389,9 +403,10 @@ function resetNewInvoice(){
   $('invoiceNo').value=invoiceNo();
   $('invoiceDate').value=new Date().toISOString().slice(0,10);
   $('sizeInput').value='';
+  $('flexTypeInput').value=FLEX_TYPES[0];
   $('rateInput').value='';
   $('qtyInput').value=1;
-  $('discountInput').value=0;
+  $('discountInput').value='';
   $('advanceInput').value=0;
   $('paymentMethod').value='Cash';
   $('sizeMessage').textContent='';
@@ -399,38 +414,45 @@ function resetNewInvoice(){
   renderTotals();
 }
 
-function updateAuthVisibility(){
-  const balanceNav=$('balanceNav');
-  if(balanceNav) balanceNav.hidden=!currentUser;
-  const balancePage=$('balance');
-  if(balancePage && !currentUser && balancePage.classList.contains('active')){
-    balancePage.classList.remove('active');
-    $('invoice')?.classList.add('active');
-    document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page==='invoice'));
-  }
-  $('mainApp').hidden=false;
-}
 function showPage(id){
   if(id==='balance' && !currentUser){
-    showLogin('Please sign in to view balances and payment transactions.');
+    pendingPageAfterLogin='balance';
+    initSupabase();
+    showLogin(configIsReady()?'Please sign in to access Balance and Transactions.':'Supabase setup required: check supabase-config.js.');
     return;
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));
-  document.querySelectorAll('.nav').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
+  document.querySelectorAll('.nav[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
   if(id==='history')renderHistory();
   if(id==='balance')renderBalance();
   if(id==='rates')renderRates();
 }
-document.querySelectorAll('.nav').forEach(b=>b.onclick=()=>{
-  if(b.dataset.page==='invoice'){
-    resetNewInvoice();
-    showPage('invoice');
-  } else {
-    showPage(b.dataset.page);
-  }
-});
-$('printBtn').onclick=()=>{if(!items.length)return alert('Add at least one item. Save the invoice first if you want it in history.');printInvoice(currentInvoice())};
-function printInvoice(inv){let t=totals(),rows=inv.items.map((x,i)=>`<tr><td>${i+1}</td><td>${x.size}</td><td>${x.qty}</td><td>${money(x.rate)}</td><td>${money(x.rate*x.qty)}</td></tr>`).join('');let w=open('','_blank');w.document.write(`<!doctype html><html><head><title>${inv.id}</title><style>*{box-sizing:border-box}body{font-family:Arial;color:#18212b}.page{max-width:850px;margin:auto;padding:30px}.head{display:flex;gap:18px;border-bottom:4px solid #ed087f;padding-bottom:15px}.head img{width:95px;height:95px;object-fit:cover;border-radius:50%}h1{margin:5px 0;color:#07345e;text-transform:uppercase}.tag{color:#ed087f;font-weight:bold}.biz{font-size:12px;line-height:1.5;margin-top:6px}.meta{display:flex;justify-content:space-between;background:#f1f5f8;padding:14px;margin:20px 0;border-radius:8px}table{width:100%;border-collapse:collapse}th,td{padding:11px;border-bottom:1px solid #ddd;text-align:left}th{background:#07345e;color:#fff}.totals{margin-left:auto;width:320px;margin-top:20px}.totals div{display:flex;justify-content:space-between;padding:7px}.final{border-top:2px solid #07345e;margin-top:5px;padding-top:12px;font-size:21px;font-weight:bold;color:#ed087f}.footer{text-align:center;margin-top:45px;border-top:1px solid #ddd;padding-top:14px;font-size:12px;color:#667}@media print{.page{padding:10mm}}</style></head><body><div class="page"><div class="head"><img src="assets/logo-mark.jpg"><div><h1>Colours Flex Printing</h1><div class="tag">COLOURS YOUR IMAGINATION</div><div class="biz">Vinyl, Frontlit, lighting boards & flex printing<br>Besides Muthooth Finance, 1st Floor, V.T.Nagar Mall, Chintapally, Nalgonda - 508250<br>Phone: 77299 47523 | Email: coloursdigital4u@gmail.com</div></div></div><div class="meta"><div><b>Bill To:</b><br>${inv.name}<br>${inv.phone}</div><div><b>Invoice:</b> ${inv.id}<br><b>Date:</b> ${inv.date}</div></div><table><thead><tr><th>#</th><th>Size</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(t.sub)}</b></div><div><span>Discount (${t.p}%)</span><b>-${money(t.d)}</b></div><div class="final"><span>INVOICE TOTAL</span><span>${money(t.total)}</span></div><div><span>Advance (${inv.paymentMethod||'Cash'})</span><b>${money(t.advance)}</b></div><div><span>BALANCE DUE</span><b>${money(t.balance)}</b></div></div><div class="footer">Thank you for your business!<br>Colours Flex Printing — Colours Your Imagination</div></div><script>onload=()=>setTimeout(()=>print(),400)<\/script></body></html>`);w.document.close()}
+document.querySelectorAll('.nav[data-page]').forEach(b=>b.addEventListener('click',()=>{
+  const page=b.dataset.page;
+  if(page==='invoice') resetNewInvoice();
+  showPage(page);
+}));
+$('printBtn').onclick=async()=>{if(!items.length)return alert('Add at least one item.');const inv=currentInvoice();const saved=await saveInvoiceRecord(inv);printInvoice(saved);alert('Invoice saved to history. Use the print dialog to print or choose Save as PDF.');};
+function printInvoice(inv){
+  const sub=Number(inv.subtotal)||0,discount=Number(inv.discountAmount)||0,percent=Number(inv.discountPercent??inv.discount)||0;
+  const total=Number(inv.total)||Math.max(0,sub-discount),paid=Number(inv.advance)||0,balance=Math.max(0,total-paid);
+  const rows=(inv.items||[]).map((x,i)=>`<tr><td>${i+1}</td><td>${x.size}</td><td>${x.flexType||'Normal Flex'}</td><td>${x.qty}</td><td>${money(x.rate)}</td><td>${money(x.rate*x.qty)}</td></tr>`).join('');
+  const w=open('','_blank'); if(!w){alert('Please allow pop-ups to generate the invoice.');return;}
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${inv.id}</title><style>*{box-sizing:border-box}body{font-family:Arial;color:#18212b}.page{max-width:850px;margin:auto;padding:30px}.head{display:flex;gap:18px;border-bottom:4px solid #ed087f;padding-bottom:15px}.head img{width:95px;height:95px;object-fit:cover;border-radius:50%}h1{margin:5px 0;color:#07345e;text-transform:uppercase}.tag{color:#ed087f;font-weight:bold}.biz{font-size:12px;line-height:1.5;margin-top:6px}.meta{display:flex;justify-content:space-between;background:#f1f5f8;padding:14px;margin:20px 0;border-radius:8px}table{width:100%;border-collapse:collapse}th,td{padding:11px;border-bottom:1px solid #ddd;text-align:left}th{background:#07345e;color:#fff}.totals{margin-left:auto;width:min(100%,360px);margin-top:20px}.totals div{display:flex;justify-content:space-between;gap:12px;padding:7px}.final{border-top:2px solid #07345e;margin-top:5px;padding-top:12px;font-size:21px;font-weight:bold;color:#ed087f}.footer{text-align:center;margin-top:45px;border-top:1px solid #ddd;padding-top:14px;font-size:12px;color:#667}@media print{.page{padding:10mm}}@media(max-width:600px){.page{padding:12px}.head{gap:10px}.head img{width:60px;height:60px}th,td{padding:5px;font-size:12px}}</style></head><body><div class="page"><div class="head"><img src="assets/logo-mark.jpg"><div><h1>Colours Flex Printing</h1><div class="tag">COLOURS YOUR IMAGINATION</div><div class="biz">Vinyl, Frontlit, lighting boards & flex printing<br>Besides Muthooth Finance, 1st Floor, V.T.Nagar Mall, Chintapally, Nalgonda - 508250<br>Phone: 77299 47523 | Email: coloursdigital4u@gmail.com</div></div></div><div class="meta"><div><b>Bill To:</b><br>${inv.name||'Walk-in Customer'}<br>${inv.phone||''}</div><div><b>Invoice:</b> ${inv.id}<br><b>Date:</b> ${inv.date||''}</div></div><table><thead><tr><th>#</th><th>Size</th><th>Flex Type</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(sub)}</b></div><div><span>Discount (${percent.toFixed(2).replace(/\.?0+$/,'')}%)</span><b>-${money(discount)}</b></div><div class="final"><span>INVOICE TOTAL</span><span>${money(total)}</span></div><div><span>Amount Paid / Collected</span><b>${money(paid)}</b></div><div><span>Payment Method</span><b>${inv.paymentMethod||'Cash'}</b></div><div><span>BALANCE DUE</span><b>${money(balance)}</b></div></div><div class="footer">Thank you for your business!<br>Colours Flex Printing — Colours Your Imagination</div></div><script>onload=()=>setTimeout(()=>print(),400)<\\/script></body></html>`);w.document.close();
+}
+function normalizedWhatsAppPhone(raw){let digits=String(raw||'').replace(/\D/g,'');if(digits.length===10)digits='91'+digits;return digits;}
+$('whatsappBtn').onclick=()=>{
+  if(!items.length)return alert('Add at least one item before sharing.');
+  const inv=currentInvoice();
+  let phone=inv.phone;
+  if(!phone){phone=prompt('Enter the customer WhatsApp phone number, including country code if outside India:');if(phone===null)return;phone=String(phone).trim();if(!phone)return alert('A phone number is required to share the invoice.');$('customerPhone').value=phone;inv.phone=phone;}
+  const waPhone=normalizedWhatsAppPhone(phone);
+  if(waPhone.length<10||waPhone.length>15)return alert('Please enter a valid WhatsApp phone number.');
+  const lines=(inv.items||[]).map((x,i)=>`${i+1}. ${x.flexType||'Normal Flex'} | ${x.size} | Qty ${x.qty} × ${money(x.rate)} = ${money(x.qty*x.rate)}`).join('\n');
+  const message=[`*Colours Flex Printing — Invoice ${inv.id}*`,`Date: ${inv.date}`,`Customer: ${inv.name}`,`Items:`,lines,`Subtotal: ${money(inv.subtotal)}`,`Discount: ${money(inv.discountAmount)} (${(inv.discountPercent||0).toFixed(2).replace(/\.?0+$/,'')}%)`,`Invoice Total: ${money(inv.total)}`,`Amount Paid / Collected: ${money(inv.advance)}`,`Balance Due: ${money(inv.balance)}`,`Payment Method: ${inv.paymentMethod}`,'Thank you for your business!'].join('\n');
+  const url='https://wa.me/'+waPhone+'?text='+encodeURIComponent(message);
+  window.open(url,'_blank','noopener');
+};
 $('loginForm').addEventListener('submit',async e=>{
   e.preventDefault();
   if(!supabaseClient){initSupabase();if(!supabaseClient)return;}
@@ -449,16 +471,24 @@ $('loginNavButton').addEventListener('click',()=>{
   showLogin(configIsReady()?'Enter your authorized portal email and password.':'Supabase setup required: check supabase-config.js.');
 });
 $('logoutButton').addEventListener('click',async()=>{
-  if(supabaseClient)await supabaseClient.auth.signOut();
-  currentUser=null; cloudReady=false; $('logoutButton').hidden=true; $('loginNavButton').textContent='Login';
-  updateAuthVisibility();
+  if(supabaseClient) await supabaseClient.auth.signOut();
+  currentUser=null; cloudReady=false; pendingPageAfterLogin=null;
+  $('logoutButton').hidden=true; $('loginNavButton').textContent='Login';
+  if($('balanceNav')) $('balanceNav').classList.remove('active');
   hideLogin();
+  resetNewInvoice();
+  showPage('invoice');
 });
 $('loginScreen').addEventListener('click',e=>{ if(e.target===$('loginScreen')) hideLogin(); });
 setup();
-// Show invoice/rate-card interface while signed out, but protect the Balance tab.
-$('mainApp').hidden=false;
-$('loginScreen').hidden=true;
-$('loginScreen').style.display='none';
-updateAuthVisibility();
 initSupabase();
+// Always show the billing UI on startup; cloud sign-in remains available from the Login tab.
+// This prevents a blank screen when testing the extracted folder without a saved Supabase session.
+$('mainApp').hidden=false;
+hideLogin();
+// The billing interface remains available; login is opened only when the Login tab is clicked.
+if(configIsReady() && window.supabase?.createClient){
+  supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
+  supabaseClient.auth.getSession().then(({data})=>{ if(data?.session) activateSession(data.session); });
+}
+
