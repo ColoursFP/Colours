@@ -246,7 +246,8 @@ function choosePaymentMethod(defaultMethod='Cash'){
   });
 }
 async function collectPayment(id){
-  if(!currentUser){alert('Please sign in to collect and record payments.');return;}
+  // Payment collection is available to all users. When signed in, changes sync to Supabase;
+  // when signed out, they are saved only in this browser's local storage.
   let inv=history.find(x=>x.id===id); if(!inv)return;
   let total=Number(inv.total)||0, paid=Number(inv.advance)||0, balance=Math.max(0,total-paid);
   if(balance<=0){alert('This invoice is already fully paid.');return;}
