@@ -45,6 +45,32 @@ input:focus,select:focus{border-color:#168bd2;box-shadow:0 0 0 3px rgba(22,139,2
 .invoice-link{border:0;background:transparent;color:#087ac2;text-decoration:underline;font-weight:700;cursor:pointer;padding:0}
 .pending-text{color:#c2185b;font-weight:800}.paid-text{color:#16804a;font-weight:800}
 .balance-detail-totals{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;padding:14px;background:#f3f6fa;border-radius:10px}
+
+/* Subtle full-site logo watermark using the same logo as the splash screen */
+body {
+  position: relative;
+  isolation: isolate;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("assets/logo-mark.png");
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-size: min(62vw, 560px);
+  opacity: 0.055;
+}
+@media (max-width: 600px) {
+  body::before {
+    background-size: 82vw;
+    background-position: center center;
+    opacity: 0.045;
+  }
+}
+
 </style>
 </head>
 <body>
