@@ -16,7 +16,7 @@
 
 /* Subtle Colours Flex Printing logo watermark across the website background */
 body{position:relative;isolation:isolate}
-body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:url('assets/logo-mark.jpg');background-repeat:no-repeat;background-position:center center;background-size:min(46vw,520px);opacity:.055}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background-image:url('assets/logo-mark.png');background-repeat:no-repeat;background-position:center center;background-size:min(46vw,520px);opacity:.055}
 @media(max-width:700px){body::before{background-size:min(72vw,360px);background-position:center 48%}}
 
 /* V11 balance dashboard, monthly/yearly filters and transaction ledger */
