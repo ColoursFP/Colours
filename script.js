@@ -44,7 +44,7 @@ const RATES={
   "10x20": 3400,
   "10x30": 4800
 };
-const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iron Frame"];
+const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iran Frame"];
 function readMaterialRates(){try{return JSON.parse(localStorage.getItem('cfp_material_rates')||'{}')||{};}catch(e){return {};}}
 let materialRates=readMaterialRates();
 function materialRateKey(type,size){return String(type||FLEX_TYPES[0])+'|'+norm(size);}
@@ -353,13 +353,21 @@ function setupPeriodFilters(){
 }
 function renderTransactions(filters){
   const records=[];
+  const selectedMethod=$('transactionMethodFilter')?.value||'all';
   history.forEach(inv=>paymentRecords(inv).forEach(p=>{
-    if(dateMatches(p.datetime||inv.date,filters))records.push({...p,invoiceId:inv.id,customer:inv.name||'Walk-in Customer'});
+    if(dateMatches(p.datetime||inv.date,filters) &&
+       (selectedMethod==='all' || (p.method||'Cash')===selectedMethod)){
+      records.push({...p,invoiceId:inv.id,customer:inv.name||'Walk-in Customer'});
+    }
   }));
   records.sort((a,b)=>new Date(b.datetime||0)-new Date(a.datetime||0));
+  const totalAmount=records.reduce((sum,p)=>sum+(Number(p.amount)||0),0);
   $('transactionCount').textContent=`${records.length} transaction${records.length===1?'':'s'}`;
-  $('transactionsBody').innerHTML=records.length?records.map(p=>`<tr><td>${fmtDateTime(p.datetime||'')}</td><td><button class="invoice-link" onclick="showBalanceDetail('${p.invoiceId}')">${p.invoiceId}</button></td><td>${p.customer}</td><td>${p.method||'—'}</td><td>${p.note||'Payment received'}</td><td class="paid-text">${money(Number(p.amount)||0)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No payment transactions found for this period.</td></tr>';
+  if($('transactionTotalAmount')) $('transactionTotalAmount').textContent=money(totalAmount);
+  if($('transactionTotalLabel')) $('transactionTotalLabel').textContent=selectedMethod==='all'?'Total Amount':`Total ${selectedMethod}`;
+  $('transactionsBody').innerHTML=records.length?records.map(p=>`<tr><td>${fmtDateTime(p.datetime||'')}</td><td><button class="invoice-link" onclick="showBalanceDetail('${p.invoiceId}')">${p.invoiceId}</button></td><td>${p.customer}</td><td>${p.method||'—'}</td><td>${p.note||'Payment received'}</td><td class="paid-text">${money(Number(p.amount)||0)}</td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No payment transactions found for this method and period.</td></tr>';
 }
+
 function renderBalance(){
   if(!$('balanceBody'))return;
   const q=norm($('balanceSearch')?.value||'');
@@ -397,6 +405,7 @@ function showBalanceDetail(id){
   el.scrollIntoView({behavior:'smooth',block:'start'});
 }
 $('balanceSearch').oninput=renderBalance;
+if($('transactionMethodFilter')) $('transactionMethodFilter').onchange=()=>renderTransactions(periodState());
 function renderRates(){let q=norm($('rateSearch')?.value||''),type=$('rateTypeSelect')?.value||FLEX_TYPES[0];$('rateGrid').innerHTML=Object.keys(RATES).filter(x=>!x.includes('above')&&norm(x).includes(q)).map(x=>{const r=rateFor(x,type);return `<div class="rate"><b>${x} · ${type}</b><span>${money(r)}</span></div>`}).join('')}
 function renderMaterialRateEditor(){if(!$('rateTypeSelect'))return;const type=$('rateTypeSelect').value||FLEX_TYPES[0],size=$('rateSizeSelect').value||Object.keys(RATES)[0],r=rateFor(size,type);$('customRateInput').value=r===null?'':r;$('rateEditorNote').textContent=Object.prototype.hasOwnProperty.call(materialRates,materialRateKey(type,size))?'Custom rate saved for this material and size.':'Using existing default rate; enter a value to override it.';}
 // Rate Card UI is intentionally removed from this build. Manual Size and Rate entry remains available.
