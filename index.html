@@ -3,160 +3,20 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Colours Flex Printing | Billing</title>
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=17">
 </head>
 <body>
-<section id="loginScreen" class="login-screen" hidden>
-  <div class="login-card">
-    <img src="assets/logo-mark.jpg" alt="Colours Flex Printing logo" class="login-logo">
-    <h1>Colours Flex Printing</h1>
-    <p>Secure Billing Portal</p>
-    <form id="loginForm">
-      <label>Email address<input id="loginEmail" type="email" autocomplete="username" required placeholder="Enter portal email"></label>
-      <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter password"></label>
-      <button id="loginButton" type="submit" class="btn primary">Sign In</button>
-    </form>
-    <div id="loginMessage" role="status" class="login-message"></div>
-    <p class="login-help">Portal access is limited to authorized accounts created in Supabase Authentication.</p>
-  </div>
-</section>
+<section id="loginScreen" class="login-screen" hidden><div class="login-card"><img src="assets/logo-mark.jpg" alt="Colours Flex Printing logo" class="login-logo"><h1>Colours Flex Printing</h1><p>Secure Billing Portal</p><form id="loginForm"><label>Email address<input id="loginEmail" type="email" autocomplete="username" required placeholder="Enter portal email"></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter password"></label><button id="loginButton" type="submit" class="btn primary">Sign In</button></form><div id="loginMessage" role="status" class="login-message"></div><p class="login-help">Portal access is limited to authorized accounts created in Supabase Authentication.</p></div></section>
 <div class="app" id="mainApp" hidden>
-<header class="header">
-  <div class="brand"><img src="assets/logo-mark.jpg"><div><h1>Colours Flex Printing</h1><small>Colours Your Imagination</small></div></div>
-  <nav>
-    <button data-page="invoice" class="nav active">New Invoice</button>
-    <button data-page="history" class="nav">Invoice History</button>
-    <button data-page="balance" class="nav" id="balanceNav">Balance</button>
-    <button data-page="rates" class="nav">Rate Card</button>
-    <button id="loginNavButton" class="nav login-nav" type="button">Login</button>
-    <button id="logoutButton" class="nav logout-nav" type="button" hidden>Sign Out</button>
-  </nav>
-</header>
-
-<section id="invoice" class="page active">
-  <div class="grid two">
-    <div class="card">
-      <h2>Customer Details</h2>
-      <div class="fields">
-        <label>Customer Name<input id="customerName" placeholder="Enter customer name"></label>
-        <label>Phone Number<input id="customerPhone" placeholder="Enter phone number"></label>
-        <label>Invoice Number<input id="invoiceNo"></label>
-        <label>Date<input id="invoiceDate" type="date"></label>
-      </div>
-    </div>
-    <div class="card total-card">
-      <div class="mini-label">TOTAL PAYABLE</div>
-      <div id="grandTotal" class="big-total">₹0.00</div>
-      <div id="itemCount" class="muted">0 items</div>
-    </div>
-  </div>
-
-  <div class="card">
-    <div class="section-title"><h2>Add Printing Item</h2><span>Examples: 3x3 • 3*3 • 3 x 3</span></div>
-    <div class="add-grid">
-      <label>Size<input id="sizeInput" list="sizes" placeholder="3x3" autocomplete="off"><datalist id="sizes"></datalist></label>
-      <label>Rate<input id="rateInput" readonly placeholder="Auto"></label>
-      <label>Quantity<input id="qtyInput" type="number" min="1" value="1"></label>
-      <button id="addBtn" class="btn primary">+ Add Item</button>
-    </div>
-    <div id="sizeMessage" class="message"></div>
-  </div>
-
-  <div class="card">
-    <div class="section-title"><h2>Items</h2><button id="clearItems" class="link-btn">Clear Items</button></div>
-    <div class="table-wrap"><table><thead><tr><th>#</th><th>Size</th><th>Rate</th><th>Qty</th><th>Amount</th><th></th></tr></thead><tbody id="itemsBody"></tbody></table></div>
-  </div>
-
-  <div class="grid two bottom-grid">
-    <div class="card payment-card">
-      <h2>Payment Details</h2>
-      <div class="payment-simple">
-        <label>Advance
-          <input id="advanceInput" type="number" min="0" step=".01" value="0">
-        </label>
-        <label>Payment Method
-          <select id="paymentMethod">
-            <option value="Cash">Cash</option>
-            <option value="Credit Card">Credit Card</option>
-            <option value="PhonePe">PhonePe</option>
-            <option value="Paytm">Paytm</option>
-            <option value="GPay">GPay</option>
-            <option value="QR Scan">QR Scan</option>
-          </select>
-        </label>
-      </div>
-      <div class="payment-result">
-        <span>Advance Paid <b id="advanceDisplay">₹0.00</b></span>
-        <span>Balance Due <b id="balanceDue">₹0.00</b></span>
-      </div>
-    </div>
-    <div class="card discount-card">
-      <h2>Discount</h2>
-      <div class="discount-box">
-        <label>Discount %
-          <input id="discountInput" type="number" min="0" max="100" step=".01" value="0">
-        </label>
-        <div><span>Discount Amount</span><b id="discountAmount">₹0.00</b></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="card summary summary-full">
-    <div><span>Subtotal</span><b id="subtotal">₹0.00</b></div>
-    <div><span>Discount</span><b id="discountDisplay">₹0.00</b></div>
-    <div><span>Advance Paid</span><b id="summaryAdvance">₹0.00</b></div>
-    <div class="final"><span>Final Price (Balance Due)</span><b id="finalPrice">₹0.00</b></div>
-    <div class="actions"><button id="saveBtn" class="btn secondary">Save Invoice</button><button id="printBtn" class="btn primary">Generate Invoice</button></div>
-  </div>
-</section>
-
-<section id="history" class="page">
-  <div class="card"><div class="section-title"><h2>Invoice History</h2><input id="historySearch" class="small-search" placeholder="Search invoice/customer"></div>
-  <div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr></thead><tbody id="historyBody"></tbody></table></div></div>
-</section>
-
-<section id="balance" class="page">
-  <div class="balance-summary">
-    <div class="card balance-metric"><span>Total Collected</span><strong id="totalCollected">₹0.00</strong></div>
-    <div class="card balance-metric pending"><span>Total Pending</span><strong id="totalPending">₹0.00</strong></div>
-    <div class="card balance-metric"><span>Total Invoice Value</span><strong id="totalInvoiceValue">₹0.00</strong></div>
-  </div>
-  <div class="card">
-    <div class="section-title balance-heading">
-      <h2>Balance & Transactions</h2>
-      <div class="balance-filters">
-        <label>Period
-          <select id="periodFilter">
-            <option value="all">All transactions</option>
-            <option value="month">Monthly</option>
-            <option value="year">Yearly</option>
-          </select>
-        </label>
-        <label id="monthFilterWrap">Month
-          <input id="monthFilter" type="month">
-        </label>
-        <label id="yearFilterWrap">Year
-          <select id="yearFilter"></select>
-        </label>
-        <input id="balanceSearch" class="small-search" placeholder="Search invoice/customer">
-      </div>
-    </div>
-    <div class="table-wrap"><table><thead><tr><th>Invoice Number</th><th>Customer</th><th>Order Details</th><th>Invoice Total</th><th>Collected</th><th>Pending</th><th>Last Payment</th></tr></thead><tbody id="balanceBody"></tbody></table></div>
-  </div>
-  <div class="card">
-    <div class="section-title"><h2>Payment Transactions</h2><span id="transactionCount">0 transactions</span></div>
-    <div class="table-wrap"><table><thead><tr><th>Date & Time</th><th>Invoice</th><th>Customer</th><th>Payment Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody id="transactionsBody"></tbody></table></div>
-  </div>
-  <div id="balanceDetail" class="card balance-detail" hidden></div>
-</section>
-
-<section id="rates" class="page">
-  <div class="card"><div class="section-title"><h2>Flex Printing Rate Card</h2><input id="rateSearch" class="small-search" placeholder="Search size"></div>
-  <div id="rateGrid" class="rate-grid"></div></div>
-</section>
+<header class="header"><div class="brand"><img src="assets/logo-mark.jpg" alt=""><div><h1>Colours Flex Printing</h1><small>Colours Your Imagination</small></div></div><nav><button data-page="invoice" class="nav active">New Invoice</button><button data-page="history" class="nav">Invoice History</button><button data-page="balance" class="nav" id="balanceNav">Balance</button><button data-page="rates" class="nav">Rate Card</button><button id="loginNavButton" class="nav login-nav" type="button">Login</button><button id="logoutButton" class="nav logout-nav" type="button" hidden>Sign Out</button></nav></header>
+<section id="invoice" class="page active"><div class="grid two"><div class="card"><h2>Customer Details</h2><div class="fields"><label>Customer Name<input id="customerName" placeholder="Enter customer name"></label><label>Phone Number<input id="customerPhone" placeholder="Enter phone number"></label><label>Invoice Number<input id="invoiceNo"></label><label>Date<input id="invoiceDate" type="date"></label></div></div><div class="card total-card"><div class="mini-label">TOTAL PAYABLE</div><div id="grandTotal" class="big-total">₹0.00</div><div id="itemCount" class="muted">0 items</div></div></div>
+<div class="card"><div class="section-title"><h2>Add Printing Item</h2><span>Examples: 3x3 • 3*3 • 3 x 3</span></div><div class="add-grid"><label>Size<input id="sizeInput" list="sizes" placeholder="3x3" autocomplete="off"><datalist id="sizes"></datalist></label><label>Flex Type<select id="flexTypeInput"></select></label><label>Rate<input id="rateInput" type="number" min="0" step=".01" placeholder="Enter rate"></label><label>Quantity<input id="qtyInput" type="number" min="1" value="1"></label><button id="addBtn" class="btn primary">+ Add Item</button></div><div id="sizeMessage" class="message"></div></div>
+<div class="card"><div class="section-title"><h2>Items</h2><button id="clearItems" class="link-btn">Clear Items</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Size</th><th>Flex Type</th><th>Rate</th><th>Qty</th><th>Amount</th><th></th></tr></thead><tbody id="itemsBody"></tbody></table></div></div>
+<div class="grid two bottom-grid"><div class="card payment-card"><h2>Payment Details</h2><div class="payment-simple"><label>Advance<input id="advanceInput" type="number" min="0" step=".01" value="0"></label><label>Payment Method<select id="paymentMethod"><option value="Cash">Cash</option><option value="Credit Card">Credit Card</option><option value="PhonePe">PhonePe</option><option value="Paytm">Paytm</option><option value="GPay">GPay</option><option value="QR Scan">QR Scan</option></select></label></div><div class="payment-result"><span>Advance Paid <b id="advanceDisplay">₹0.00</b></span><span>Balance Due <b id="balanceDue">₹0.00</b></span></div></div><div class="card discount-card"><h2>Discount</h2><div class="discount-box"><label>Discount Amount (₹)<input id="discountInput" type="number" min="0" step=".01" placeholder="Enter discount amount" value=""></label><div class="discount-percent"><span>Discount Percentage</span><b id="discountPercentDisplay">0%</b></div><div><span>Discount Amount</span><b id="discountAmount">₹0.00</b></div></div></div></div>
+<div class="card summary summary-full"><div><span>Subtotal</span><b id="subtotal">₹0.00</b></div><div><span>Discount</span><b id="discountDisplay">₹0.00</b></div><div><span>Advance Paid</span><b id="summaryAdvance">₹0.00</b></div><div class="final"><span>Final Price (Balance Due)</span><b id="finalPrice">₹0.00</b></div><div class="actions"><button id="printBtn" class="btn primary">Generate Invoice</button><button id="whatsappBtn" class="btn whatsapp-btn" type="button">Share via WhatsApp</button></div></div></section>
+<section id="history" class="page"><div class="card"><div class="section-title"><h2>Invoice History</h2><input id="historySearch" class="small-search" placeholder="Search invoice/customer"></div><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr></thead><tbody id="historyBody"></tbody></table></div></div></section>
+<section id="balance" class="page"><div class="balance-summary"><div class="card balance-metric"><span>Total Collected</span><strong id="totalCollected">₹0.00</strong></div><div class="card balance-metric pending"><span>Total Pending</span><strong id="totalPending">₹0.00</strong></div><div class="card balance-metric"><span>Total Invoice Value</span><strong id="totalInvoiceValue">₹0.00</strong></div></div><div class="card"><div class="section-title balance-heading"><h2>Balance & Transactions</h2><div class="balance-filters"><label>Period<select id="periodFilter"><option value="all">All transactions</option><option value="month">Monthly</option><option value="year">Yearly</option></select></label><label id="monthFilterWrap">Month<input id="monthFilter" type="month"></label><label id="yearFilterWrap">Year<select id="yearFilter"></select></label><input id="balanceSearch" class="small-search" placeholder="Search invoice/customer"></div></div><div class="table-wrap"><table><thead><tr><th>Invoice Number</th><th>Customer</th><th>Order Details</th><th>Invoice Total</th><th>Collected</th><th>Pending</th><th>Last Payment</th></tr></thead><tbody id="balanceBody"></tbody></table></div></div><div class="card"><div class="section-title"><h2>Payment Transactions</h2><span id="transactionCount">0 transactions</span></div><div class="table-wrap"><table><thead><tr><th>Date &amp; Time</th><th>Invoice</th><th>Customer</th><th>Payment Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody id="transactionsBody"></tbody></table></div></div><div id="balanceDetail" class="card balance-detail" hidden></div></section>
+<section id="rates" class="page"><div class="card"><div class="section-title"><h2>Flex Printing Rate Card</h2><input id="rateSearch" class="small-search" placeholder="Search size"></div><label class="rate-type-label">Flex Type<select id="rateTypeSelect"></select></label><div id="rateGrid" class="rate-grid"></div></div><div class="card"><h2>Configure Material Rate</h2><p class="muted">Existing size rates are preserved as defaults. Set a custom rate for a specific material and size; custom rates are saved in this browser.</p><div class="rate-editor"><div class="rate-type-current">Editing selected Flex Type above</div><label>Size<select id="rateSizeSelect"></select></label><label>Rate (₹)<input id="customRateInput" type="number" min="0" step=".01"></label><button id="saveCustomRateBtn" class="btn primary">Save Rate</button><button id="resetCustomRateBtn" class="btn secondary">Reset to Default</button></div><div id="rateEditorNote" class="muted"></div></div></section>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="supabase-config.js?v=13"></script>
-<script src="script.js?v=13"></script>
-<script src="script-fix.js?v=1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=13"></script><script src="script.js?v=17"></script>
 </body></html>
