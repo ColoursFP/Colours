@@ -517,4 +517,3 @@ if(configIsReady() && window.supabase?.createClient){
   supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
   supabaseClient.auth.getSession().then(({data})=>{ if(data?.session) activateSession(data.session); });
 }
-
