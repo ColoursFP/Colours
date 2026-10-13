@@ -40,6 +40,11 @@ input:focus,select:focus{border-color:#168bd2;box-shadow:0 0 0 3px rgba(22,139,2
 @media(max-width:900px){.fields{grid-template-columns:repeat(2,minmax(0,1fr))}.add-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.add-grid .btn{width:100%}.grid.two{grid-template-columns:minmax(0,1fr)}.total-card{min-height:130px}}
 @media(max-width:560px){.app{padding:0 10px 18px}.header{margin:0 -10px 14px;padding:13px;align-items:flex-start}.brand h1{font-size:17px}.brand img{width:44px;height:44px}.header nav{width:100%;gap:6px}.nav{font-size:12px;padding:9px 10px}.card{padding:14px;border-radius:12px}.fields,.payment-simple{grid-template-columns:minmax(0,1fr)}.add-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.add-grid label:nth-child(1),.add-grid label:nth-child(2){grid-column:span 1}.add-grid .btn{grid-column:1/-1}.balance-summary{grid-template-columns:minmax(0,1fr)}.balance-filters{width:100%}.balance-filters label,.balance-filters .small-search{width:100%;min-width:0}.actions{justify-content:stretch}.actions .btn{flex:1 1 100%}}
 
+
+.danger{border:0;border-radius:8px;padding:9px 12px;background:#fee2e2;color:#991b1b;font-weight:700;cursor:pointer}
+.invoice-link{border:0;background:transparent;color:#087ac2;text-decoration:underline;font-weight:700;cursor:pointer;padding:0}
+.pending-text{color:#c2185b;font-weight:800}.paid-text{color:#16804a;font-weight:800}
+.balance-detail-totals{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;padding:14px;background:#f3f6fa;border-radius:10px}
 </style>
 </head>
 <body>
@@ -55,5 +60,5 @@ input:focus,select:focus{border-color:#168bd2;box-shadow:0 0 0 3px rgba(22,139,2
 <section id="balance" class="page"><div class="balance-summary"><div class="card balance-metric"><span>Total Collected</span><strong id="totalCollected">₹0.00</strong></div><div class="card balance-metric pending"><span>Total Pending</span><strong id="totalPending">₹0.00</strong></div><div class="card balance-metric"><span>Total Invoice Value</span><strong id="totalInvoiceValue">₹0.00</strong></div></div><div class="card"><div class="section-title balance-heading"><h2>Balance & Transactions</h2><div class="balance-filters"><label>Period<select id="periodFilter"><option value="all">All transactions</option><option value="month">Monthly</option><option value="year">Yearly</option></select></label><label id="monthFilterWrap">Month<input id="monthFilter" type="month"></label><label id="yearFilterWrap">Year<select id="yearFilter"></select></label><input id="balanceSearch" class="small-search" placeholder="Search invoice/customer"></div></div><div class="table-wrap"><table><thead><tr><th>Invoice Number</th><th>Customer</th><th>Order Details</th><th>Invoice Total</th><th>Collected</th><th>Pending</th><th>Last Payment</th></tr></thead><tbody id="balanceBody"></tbody></table></div></div><div class="card"><div class="section-title"><h2>Payment Transactions</h2><span id="transactionCount">0 transactions</span></div><div class="table-wrap"><table><thead><tr><th>Date &amp; Time</th><th>Invoice</th><th>Customer</th><th>Payment Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody id="transactionsBody"></tbody></table></div></div><div id="balanceDetail" class="card balance-detail" hidden></div></section>
 
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=22"></script><script src="script.js?v=22"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=23"></script><script src="script.js?v=23"></script>
 </body></html>
