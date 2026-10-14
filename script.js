@@ -456,10 +456,9 @@ $('printBtn').onclick=async()=>{
   const inv=currentInvoice();
   if(!inv.items.every(x=>String(x.size||'').trim() && Number.isFinite(Number(x.rate)) && Number(x.rate)>=0))return alert('Check each item size and rate before generating.');
   if(history.some(x=>String(x.id)===String(inv.id)))return alert('This invoice number is already recorded and locked. Start a New Invoice.');
-  const saved=await saveInvoiceRecord(inv);
-  printInvoice(saved);
+  await saveInvoiceRecord(inv);
+  // Save the invoice to history without opening a print window or preview.
   resetNewInvoice();
-  alert('Invoice recorded and locked in history. Use the print dialog to print or choose Save as PDF.');
 };
 function printInvoice(inv){
   const sub=Number(inv.subtotal)||0,discount=Number(inv.discountAmount)||0,percent=Number(inv.discountPercent??inv.discount)||0;
