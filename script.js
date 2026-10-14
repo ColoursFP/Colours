@@ -44,7 +44,7 @@ const RATES={
   "10x20": 3400,
   "10x30": 4800
 };
-const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iron Frame","Bond"];
+const FLEX_TYPES=["Bond","Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iron Frame"];
 function readMaterialRates(){try{return JSON.parse(localStorage.getItem('cfp_material_rates')||'{}')||{};}catch(e){return {};}}
 let materialRates=readMaterialRates();
 function materialRateKey(type,size){return String(type||FLEX_TYPES[0])+'|'+norm(size);}
@@ -164,7 +164,7 @@ function setup(){ $('invoiceDate').value=new Date().toISOString().slice(0,10);$(
 function updateItemRate(){ $('sizeMessage').textContent='Enter the size and rate manually. Existing rates remain available in Rate Card.'; }
 $('sizeInput').addEventListener('input',()=>{});
 $('flexTypeInput').addEventListener('change',()=>{});
-$('addBtn').onclick=()=>{let rawSize=$('sizeInput').value.trim(),type=$('flexTypeInput').value||FLEX_TYPES[0],r=Number($('rateInput').value),q=Math.max(1,Number($('qtyInput').value)||1);if(!rawSize)return alert('Please enter a size.');if($('rateInput').value.trim()===''||!Number.isFinite(r)||r<0)return alert('Please enter a valid rate.');items.push({size:rawSize,flexType:type,rate:r,qty:q});$('sizeInput').value='';$('rateInput').value='';$('qtyInput').value=1;$('sizeMessage').textContent='';renderItems();renderTotals()};
+$('addBtn').onclick=()=>{let rawSize=$('sizeInput').value.trim(),type=$('flexTypeInput').value||FLEX_TYPES[0],r=Number($('rateInput').value),q=Math.max(1,Number($('qtyInput').value)||1);if(type!=='Bond'&&!rawSize)return alert('Please enter a size.');if($('rateInput').value.trim()===''||!Number.isFinite(r)||r<0)return alert('Please enter a valid rate.');items.push({size:rawSize,flexType:type,rate:r,qty:q});$('sizeInput').value='';$('rateInput').value='';$('qtyInput').value=1;$('sizeMessage').textContent='';renderItems();renderTotals()};
 $('clearItems').onclick=()=>{items=[];renderItems();renderTotals()};
 $('qtyInput').addEventListener('focus',()=>{if($('qtyInput').value==='1'||$('qtyInput').value==='0')$('qtyInput').value='';});
 $('qtyInput').addEventListener('blur',()=>{if(!$('qtyInput').value.trim()||Number($('qtyInput').value)<1)$('qtyInput').value='1';});
@@ -454,7 +454,7 @@ document.querySelectorAll('.nav[data-page]').forEach(b=>b.addEventListener('clic
 $('printBtn').onclick=async()=>{
   if(!items.length)return alert('Add at least one item.');
   const inv=currentInvoice();
-  if(!inv.items.every(x=>String(x.size||'').trim() && Number.isFinite(Number(x.rate)) && Number(x.rate)>=0))return alert('Check each item size and rate before generating.');
+  if(!inv.items.every(x=>(String(x.flexType||'')==='Bond'||String(x.size||'').trim()) && Number.isFinite(Number(x.rate)) && Number(x.rate)>=0))return alert('Check each item size and rate before generating.');
   if(history.some(x=>String(x.id)===String(inv.id)))return alert('This invoice number is already recorded and locked. Start a New Invoice.');
   await saveInvoiceRecord(inv);
   // Save the invoice to history without opening a print window or preview.
