@@ -44,7 +44,7 @@ const RATES={
   "10x20": 3400,
   "10x30": 4800
 };
-const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iron Frame"];
+const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iran Frame"];
 function readMaterialRates(){try{return JSON.parse(localStorage.getItem('cfp_material_rates')||'{}')||{};}catch(e){return {};}}
 let materialRates=readMaterialRates();
 function materialRateKey(type,size){return String(type||FLEX_TYPES[0])+'|'+norm(size);}
@@ -132,11 +132,17 @@ function initSupabase(){
   });
 }
 function showLogin(message=''){
-  $('loginScreen').hidden=false; $('loginScreen').style.display='grid';
+  $('mainApp').hidden=true;
+  $('loginScreen').hidden=false;
+  $('loginScreen').style.display='grid';
   $('loginMessage').textContent=message || 'Sign in to sync invoices securely to the cloud.';
   $('loginEmail').focus();
 }
-function hideLogin(){ $('loginScreen').hidden=true; $('loginScreen').style.display='none'; }
+function hideLogin(){
+  $('loginScreen').hidden=true;
+  $('loginScreen').style.display='none';
+  if(!currentUser) $('mainApp').hidden=false;
+}
 async function activateSession(session){
   currentUser=session.user;
   hideLogin(); $('mainApp').hidden=false;
@@ -463,31 +469,76 @@ function printInvoice(inv){
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${inv.id}</title><style>*{box-sizing:border-box}body{font-family:Arial;color:#18212b}.page{max-width:850px;margin:auto;padding:30px}.head{display:flex;gap:18px;border-bottom:4px solid #ed087f;padding-bottom:15px}.head img{width:95px;height:95px;object-fit:cover;border-radius:50%}h1{margin:5px 0;color:#07345e;text-transform:uppercase}.tag{color:#ed087f;font-weight:bold}.biz{font-size:12px;line-height:1.5;margin-top:6px}.meta{display:flex;justify-content:space-between;background:#f1f5f8;padding:14px;margin:20px 0;border-radius:8px}table{width:100%;border-collapse:collapse}th,td{padding:11px;border-bottom:1px solid #ddd;text-align:left}th{background:#07345e;color:#fff}.totals{margin-left:auto;width:min(100%,360px);margin-top:20px}.totals div{display:flex;justify-content:space-between;gap:12px;padding:7px}.final{border-top:2px solid #07345e;margin-top:5px;padding-top:12px;font-size:21px;font-weight:bold;color:#ed087f}.footer{text-align:center;margin-top:45px;border-top:1px solid #ddd;padding-top:14px;font-size:12px;color:#667}@media print{.page{padding:10mm}}@media(max-width:600px){.page{padding:12px}.head{gap:10px}.head img{width:60px;height:60px}th,td{padding:5px;font-size:12px}}</style></head><body><div class="page"><div class="head"><img src="assets/logo-mark.png"><div><h1>Colours Flex Printing</h1><div class="tag">COLOURS YOUR IMAGINATION</div><div class="biz">Vinyl, Frontlit, lighting boards & flex printing<br>Besides Muthooth Finance, 1st Floor, V.T.Nagar Mall, Chintapally, Nalgonda - 508250<br>Phone: 77299 47523 | Email: coloursdigital4u@gmail.com</div></div></div><div class="meta"><div><b>Bill To:</b><br>${inv.name||'Walk-in Customer'}<br>${inv.phone||''}</div><div><b>Invoice:</b> ${inv.id}<br><b>Date:</b> ${inv.date||''}</div></div><table><thead><tr><th>#</th><th>Size</th><th>Flex Type</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(sub)}</b></div><div><span>Discount (${percent.toFixed(2).replace(/\.?0+$/,'')}%)</span><b>-${money(discount)}</b></div><div class="final"><span>INVOICE TOTAL</span><span>${money(total)}</span></div><div><span>Amount Paid / Collected</span><b>${money(paid)}</b></div><div><span>Payment Method</span><b>${inv.paymentMethod||'Cash'}</b></div><div><span>BALANCE DUE</span><b>${money(balance)}</b></div></div><div class="footer">Thank you for your business!<br>Colours Flex Printing — Colours Your Imagination</div></div><script>onload=()=>setTimeout(()=>print(),400)<\\/script></body></html>`);w.document.close();
 }
 function normalizedWhatsAppPhone(raw){let digits=String(raw||'').replace(/\D/g,'');if(digits.length===10)digits='91'+digits;return digits;}
+async function loadJsPDF(){
+  if(window.jspdf&&window.jspdf.jsPDF)return window.jspdf.jsPDF;
+  if(window.__cfpJsPdfLoading)return window.__cfpJsPdfLoading;
+  window.__cfpJsPdfLoading=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js';
+    script.onload=()=>window.jspdf&&window.jspdf.jsPDF?resolve(window.jspdf.jsPDF):reject(new Error('PDF library did not load.'));
+    script.onerror=()=>reject(new Error('Could not load the PDF generator. Check your internet connection and try again.'));
+    document.head.appendChild(script);
+  });
+  return window.__cfpJsPdfLoading;
+}
+function makeInvoicePdf(inv,JsPDF){
+  const doc=new JsPDF({unit:'mm',format:'a4'});
+  const left=15,right=195;let y=18;
+  const sub=Number(inv.subtotal)||0,discount=Number(inv.discountAmount)||0,pct=Number(inv.discountPercent??inv.discount)||0;
+  const total=Number(inv.total)||Math.max(0,sub-discount),paid=Number(inv.advance)||0,balance=Math.max(0,total-paid);
+  const safe=v=>String(v??'—').replace(/[\r\n]+/g,' ').trim();
+  doc.setFont('helvetica','bold');doc.setFontSize(20);doc.setTextColor(7,52,94);doc.text('COLOURS FLEX PRINTING',left,y);
+  y+=7;doc.setFontSize(9);doc.setTextColor(237,8,127);doc.text('COLOURS YOUR IMAGINATION',left,y);
+  y+=6;doc.setFont('helvetica','normal');doc.setTextColor(60,70,80);doc.text('Vinyl, Frontlit, lighting boards & flex printing',left,y);
+  y+=5;doc.text('Besides Muthooth Finance, 1st Floor, V.T.Nagar Mall, Chintapally, Nalgonda - 508250',left,y);
+  y+=5;doc.text('Phone: 77299 47523 | Email: coloursdigital4u@gmail.com',left,y);
+  y+=5;doc.setDrawColor(237,8,127);doc.setLineWidth(1.2);doc.line(left,y,right,y);y+=9;
+  doc.setFont('helvetica','bold');doc.setFontSize(12);doc.setTextColor(7,52,94);doc.text('INVOICE',left,y);
+  y+=7;doc.setFont('helvetica','normal');doc.setFontSize(10);doc.setTextColor(30,40,50);
+  doc.text('Invoice: '+safe(inv.id),left,y);doc.text('Date: '+safe(inv.date),120,y);y+=6;
+  doc.text('Customer: '+safe(inv.name||'Walk-in Customer'),left,y);y+=6;doc.text('Phone: '+safe(inv.phone||'—'),left,y);y+=8;
+  const cols=[left,25,76,111,131,153,195];
+  const headers=['#','Size','Flex Type','Qty','Rate','Amount'];
+  doc.setFillColor(7,52,94);doc.rect(left,y-5,180,9,'F');doc.setFont('helvetica','bold');doc.setFontSize(8);doc.setTextColor(255,255,255);
+  const hx=[17,30,78,116,136,158];headers.forEach((h,i)=>doc.text(h,hx[i],y));y+=9;
+  doc.setFont('helvetica','normal');doc.setTextColor(35,45,55);
+  (inv.items||[]).forEach((it,i)=>{
+    if(y>265){doc.addPage();y=20;}
+    const row=[String(i+1),safe(it.size),safe(it.flexType||'Normal Flex'),String(it.qty??1),money(it.rate),money((Number(it.qty)||0)*(Number(it.rate)||0))];
+    doc.setDrawColor(220,225,230);doc.line(left,y+3,right,y+3);
+    doc.text(row[0],17,y);doc.text(row[1],30,y);doc.text(row[2].slice(0,24),78,y);doc.text(row[3],116,y);doc.text(row[4],136,y);doc.text(row[5],158,y);y+=9;
+  });
+  y+=8;if(y>255){doc.addPage();y=20;}
+  const summary=[['Subtotal',money(sub)],['Discount ('+pct.toFixed(2).replace(/\.?0+$/,'')+'%)','-'+money(discount)],['INVOICE TOTAL',money(total)],['Amount Paid / Collected',money(paid)],['Payment Method',safe(inv.paymentMethod||'Cash')],['BALANCE DUE',money(balance)]];
+  summary.forEach(([label,value],i)=>{if(i===2||i===5){doc.setFont('helvetica','bold');doc.setTextColor(237,8,127);doc.setFontSize(i===2?12:11);}else{doc.setFont('helvetica','normal');doc.setTextColor(45,55,65);doc.setFontSize(10);}doc.text(label,110,y);doc.text(value,right,y,{align:'right'});y+=7;});
+  y+=10;doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(100,110,120);doc.text('Thank you for your business!',105,Math.min(y,285),{align:'center'});
+  return doc;
+}
 async function shareSavedInvoice(id){
   const inv=history.find(x=>String(x.id)===String(id));
   if(!inv){alert('Invoice not found in history.');return;}
   let phone=String(inv.phone||'').trim();
-  if(!phone){
-    phone=prompt('Enter the customer WhatsApp phone number, including country code if outside India:');
-    if(phone===null)return;
-    phone=String(phone).trim();
-    if(!phone)return alert('A phone number is required to share the invoice.');
-    // Remember the number for future sharing without changing the invoice's financial details.
-    inv.phone=phone;
-    await persistInvoices();
-    renderHistory();
-  }
+  if(!phone){phone=prompt('Enter the customer WhatsApp phone number, including country code if outside India:');if(phone===null)return;phone=String(phone).trim();if(!phone)return alert('A phone number is required to share the invoice.');inv.phone=phone;await persistInvoices();renderHistory();}
   const waPhone=normalizedWhatsAppPhone(phone);
   if(waPhone.length<10||waPhone.length>15)return alert('Please enter a valid WhatsApp phone number.');
-  const lines=(inv.items||[]).map((x,i)=>`${i+1}. ${x.flexType||'Normal Flex'} | ${x.size} | Qty ${x.qty} × ${money(x.rate)} = ${money((Number(x.qty)||0)*(Number(x.rate)||0))}`).join('\n');
-  const subtotal=Number(inv.subtotal)||0;
-  const discount=Number(inv.discountAmount)||0;
-  const pct=Number(inv.discountPercent??inv.discount)||0;
-  const total=Number(inv.total)||Math.max(0,subtotal-discount);
-  const paid=Number(inv.advance)||0;
-  const balance=Math.max(0,total-paid);
-  const message=[`*Colours Flex Printing — Invoice ${inv.id}*`,`Date: ${inv.date||'—'}`,`Customer: ${inv.name||'Walk-in Customer'}`,'Items:',lines,`Subtotal: ${money(subtotal)}`,`Discount: ${money(discount)} (${pct.toFixed(2).replace(/\.?0+$/,'')}%)`,`Invoice Total: ${money(total)}`,`Amount Paid / Collected: ${money(paid)}`,`Balance Due: ${money(balance)}`,`Payment Method: ${inv.paymentMethod||'Cash'}`,'Thank you for your business!'].join('\n');
-  window.open('https://wa.me/'+waPhone+'?text='+encodeURIComponent(message),'_blank','noopener');
+  const total=Number(inv.total)||Math.max(0,(Number(inv.subtotal)||0)-(Number(inv.discountAmount)||0));
+  const message=`Hello ${inv.name||'Customer'}, please find the PDF invoice ${inv.id} from Colours Flex Printing. Invoice total: ${money(total)}. Balance due: ${money(Math.max(0,total-(Number(inv.advance)||0)))}. Thank you!`;
+  try{
+    const JsPDF=await loadJsPDF();
+    const doc=makeInvoicePdf(inv,JsPDF);
+    const file=new File([doc.output('blob')],`Colours-Flex-Invoice-${String(inv.id).replace(/[^a-zA-Z0-9_-]/g,'_')}.pdf`,{type:'application/pdf'});
+    if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:`Invoice ${inv.id}`,text:message});
+      return;
+    }
+    // WhatsApp's wa.me URL cannot attach a local file automatically on browsers without file sharing.
+    doc.save(file.name);
+    window.open('https://wa.me/'+waPhone+'?text='+encodeURIComponent(message),'_blank','noopener');
+    alert('Your invoice PDF has been downloaded. In WhatsApp, attach the downloaded PDF from your Downloads folder and send it to the customer. This browser cannot attach local files automatically.');
+  }catch(e){
+    console.error('PDF invoice sharing failed',e);
+    alert('Could not create/share the PDF: '+(e&&e.message?e.message:'Unknown error')+'. Please try again.');
+  }
 }
 $('loginForm').addEventListener('submit',async e=>{
   e.preventDefault();
