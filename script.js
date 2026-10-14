@@ -44,7 +44,7 @@ const RATES={
   "10x20": 3400,
   "10x30": 4800
 };
-const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iran Frame"];
+const FLEX_TYPES=["Normal Flex","Vinyl","Backout Flex","Backout Star Flex","Backlit Flex","Backlit Star Flex","Backlit Board","Foam Sheet 3MM","Foam Sheet 5MM","Oneway Vision","Iron Frame","Bond"];
 function readMaterialRates(){try{return JSON.parse(localStorage.getItem('cfp_material_rates')||'{}')||{};}catch(e){return {};}}
 let materialRates=readMaterialRates();
 function materialRateKey(type,size){return String(type||FLEX_TYPES[0])+'|'+norm(size);}
