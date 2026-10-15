@@ -55,6 +55,10 @@ function readSavedInvoices(){
   catch(e){ console.error('Could not read local invoices',e); return []; }
 }
 let history=readSavedInvoices();
+let publicHistory=[];
+let publicHistoryLoaded=false;
+let publicHistoryLoading=false;
+let publicHistoryError='';
 let supabaseClient=null;
 let currentUser=null;
 let cloudReady=false;
@@ -64,6 +68,15 @@ function configIsReady(){
     window.COLOURS_SUPABASE_URL.startsWith('https://') &&
     !window.COLOURS_SUPABASE_URL.includes('PASTE_') &&
     !window.COLOURS_SUPABASE_ANON_KEY.includes('PASTE_'));
+}
+function compareInvoiceCreationNewestFirst(a,b){
+  const aCreated=Date.parse(a.createdAt||a.created_at||'')||0;
+  const bCreated=Date.parse(b.createdAt||b.created_at||'')||0;
+  if(aCreated!==bCreated)return bCreated-aCreated;
+  const dateOrder=String(b.date||'').localeCompare(String(a.date||''));
+  if(dateOrder)return dateOrder;
+  // Deterministic fallback for older invoices without a creation timestamp.
+  return String(b.id||'').localeCompare(String(a.id||''));
 }
 function localPersist(){
   try { localStorage.setItem('cfp_invoices',JSON.stringify(history)); return true; }
@@ -105,13 +118,44 @@ async function loadCloudInvoices(){
   const map=new Map();
   cloud.forEach(inv=>map.set(String(inv.id),inv));
   history.forEach(inv=>{if(!map.has(String(inv.id)))map.set(String(inv.id),inv);});
-  history=[...map.values()].sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')));
+  history=[...map.values()].sort(compareInvoiceCreationNewestFirst);
   localPersist();
   cloudReady=true;
   // Upload any browser-only invoices into the cloud after merging, so they are not left local-only.
   await persistInvoices();
   renderHistory(); refreshPeriodYears(); renderBalance();
 }
+async function loadPublicInvoiceHistory(force=false){
+  if(!supabaseClient || publicHistoryLoading || (publicHistoryLoaded && !force)) return;
+  publicHistoryLoading=true;
+  publicHistoryError='';
+  try{
+    // This view exposes only invoice number, date, and total; it never returns customer names, phone numbers, line items, or payment records.
+    const {data,error}=await supabaseClient.from('public_invoice_history').select('invoice_number,invoice_date,total,created_at').order('created_at',{ascending:false,nullsFirst:false}).order('invoice_date',{ascending:false}).order('invoice_number',{ascending:false});
+    if(error) throw error;
+    publicHistory=Array.isArray(data)?data:[];
+    publicHistoryLoaded=true;
+  }catch(e){
+    console.error('Public invoice history load failed',e);
+    publicHistoryError=e.message||'Could not load shared invoice history.';
+    publicHistoryLoaded=false;
+  }finally{
+    publicHistoryLoading=false;
+    if(!currentUser) renderHistory();
+  }
+}
+function renderPublicHistory(){
+  const q=norm($('historySearch')?.value||'');
+  const head=document.querySelector('#history table thead');
+  if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Total</th><th>Access</th></tr>';
+  if(!publicHistoryLoaded){
+    $('historyBody').innerHTML=`<tr><td colspan="4" style="text-align:center;color:#7a8794">${publicHistoryLoading?'Loading shared invoice history…':(publicHistoryError?`Could not load shared invoices: ${escapeHtml(publicHistoryError)}. Ask the site administrator to apply the public history SQL setup.`:'Loading shared invoice history…')}</td></tr>`;
+    return;
+  }
+  const rows=publicHistory.filter(x=>norm(String(x.invoice_number||'')+' '+String(x.invoice_date||'')).includes(q));
+  $('historyBody').innerHTML=rows.length?rows.map(x=>`<tr><td>${escapeHtml(String(x.invoice_number||''))}</td><td>${escapeHtml(String(x.invoice_date||''))}</td><td>${money(Number(x.total)||0)}</td><td><span class="muted">Public summary only</span></td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#7a8794">No shared invoices found.</td></tr>';
+}
+function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function initSupabase(){
   if(supabaseClient) return;
   if(!configIsReady()){ $('loginMessage').textContent='Supabase setup required: add your Project URL and anon/publishable key to supabase-config.js.'; return; }
@@ -229,7 +273,7 @@ async function deleteInvoice(id){
   await persistInvoices();
   renderHistory();refreshPeriodYears();renderBalance();
 }
-function renderHistory(){let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>!x.hiddenFromHistory&&norm(x.id+' '+x.name+' '+x.phone).includes(q));$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${x.id}</td><td>${x.date}</td><td>${x.name}</td><td>${x.phone||'-'}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${x.id}')">Locked</button> <button class="btn whatsapp-btn" onclick="shareSavedInvoice('${x.id}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${x.id}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${x.id}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
+function renderHistory(){if(!currentUser){renderPublicHistory();return;}const head=document.querySelector('#history table thead');if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr>';let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>!x.hiddenFromHistory&&norm(x.id+' '+x.name+' '+x.phone).includes(q)).sort(compareInvoiceCreationNewestFirst);$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${escapeHtml(x.id)}</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.phone||'-')}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${escapeHtml(x.id)}')">Locked</button> <button class="btn whatsapp-btn" onclick="shareSavedInvoice('${escapeHtml(x.id)}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${escapeHtml(x.id)}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${escapeHtml(x.id)}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
 function choosePaymentMethod(defaultMethod='Cash'){
   return new Promise(resolve=>{
     const methods=['Cash','Credit Card','PhonePe','Paytm','GPay','QR Scan'];
@@ -277,7 +321,7 @@ async function collectPayment(id){
   renderHistory();refreshPeriodYears();renderBalance();
   alert('Payment recorded: '+money(amount)+'\nRecorded at: '+new Date(now).toLocaleString()+'\nBalance due: '+money(inv.balance));
 }
-$('historySearch').oninput=renderHistory;
+$('historySearch').oninput=()=>{if(!currentUser&&!publicHistoryLoaded)loadPublicInvoiceHistory();renderHistory();};
 function fmtDateTime(value){
   if(!value)return '—';
   const d=new Date(value);
@@ -442,7 +486,7 @@ function showPage(id){
   }
   document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active',p.id===id));
   document.querySelectorAll('.nav[data-page]').forEach(b=>b.classList.toggle('active',b.dataset.page===id));
-  if(id==='history')renderHistory();
+  if(id==='history'){if(!currentUser)loadPublicInvoiceHistory();renderHistory();}
   if(id==='balance')renderBalance();
 
 }
@@ -480,7 +524,7 @@ async function loadJsPDF(){
   });
   return window.__cfpJsPdfLoading;
 }
-function makeInvoicePdf(inv,JsPDF){
+function makeInvoicePdf(inv,JsPDF,logoData){
   const doc=new JsPDF({unit:'mm',format:'a4'});
   const left=15,right=195;let y=18;
   const sub=Number(inv.subtotal)||0,discount=Number(inv.discountAmount)||0,pct=Number(inv.discountPercent??inv.discount)||0;
@@ -511,7 +555,29 @@ function makeInvoicePdf(inv,JsPDF){
   const summary=[['Subtotal',money(sub)],['Discount ('+pct.toFixed(2).replace(/\.?0+$/,'')+'%)','-'+money(discount)],['INVOICE TOTAL',money(total)],['Amount Paid / Collected',money(paid)],['Payment Method',safe(inv.paymentMethod||'Cash')],['BALANCE DUE',money(balance)]];
   summary.forEach(([label,value],i)=>{if(i===2||i===5){doc.setFont('helvetica','bold');doc.setTextColor(237,8,127);doc.setFontSize(i===2?12:11);}else{doc.setFont('helvetica','normal');doc.setTextColor(45,55,65);doc.setFontSize(10);}doc.text(label,110,y);doc.text(value,right,y,{align:'right'});y+=7;});
   y+=10;doc.setFont('helvetica','italic');doc.setFontSize(9);doc.setTextColor(100,110,120);doc.text('Thank you for your business!',105,Math.min(y,285),{align:'center'});
+  if(logoData){
+    const pageCount=doc.internal.getNumberOfPages();
+    for(let page=1;page<=pageCount;page++){
+      doc.setPage(page);
+      try{
+        doc.saveGraphicsState();
+        doc.setGState(new doc.GState({opacity:0.10}));
+        const pageW=doc.internal.pageSize.getWidth(),pageH=doc.internal.pageSize.getHeight();
+        const markW=105,markH=105;
+        doc.addImage(logoData,'PNG',(pageW-markW)/2,(pageH-markH)/2,markW,markH,undefined,'FAST');
+        doc.restoreGraphicsState();
+      }catch(e){try{doc.restoreGraphicsState();}catch(_){} console.warn('Could not add PDF logo watermark',e);}
+    }
+  }
   return doc;
+}
+async function loadInvoiceWatermark(){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.onload=()=>{try{const canvas=document.createElement('canvas');canvas.width=img.naturalWidth||img.width;canvas.height=img.naturalHeight||img.height;const ctx=canvas.getContext('2d');ctx.drawImage(img,0,0);resolve(canvas.toDataURL('image/png'));}catch(e){resolve(null);}};
+    img.onerror=()=>resolve(null);
+    img.src=new URL('assets/splash_screen.png',document.baseURI).href;
+  });
 }
 async function shareSavedInvoice(id){
   const inv=history.find(x=>String(x.id)===String(id));
@@ -524,7 +590,8 @@ async function shareSavedInvoice(id){
   const message=`Hello ${inv.name||'Customer'}, please find the PDF invoice ${inv.id} from Colours Flex Printing. Invoice total: ${money(total)}. Balance due: ${money(Math.max(0,total-(Number(inv.advance)||0)))}. Thank you!`;
   try{
     const JsPDF=await loadJsPDF();
-    const doc=makeInvoicePdf(inv,JsPDF);
+    const logoData=await loadInvoiceWatermark();
+    const doc=makeInvoicePdf(inv,JsPDF,logoData);
     const file=new File([doc.output('blob')],`Colours-Flex-Invoice-${String(inv.id).replace(/[^a-zA-Z0-9_-]/g,'_')}.pdf`,{type:'application/pdf'});
     if(navigator.share&&navigator.canShare&&navigator.canShare({files:[file]})){
       await navigator.share({files:[file],title:`Invoice ${inv.id}`,text:message});
@@ -562,6 +629,7 @@ $('logoutButton').addEventListener('click',async()=>{
   $('logoutButton').hidden=true; $('loginNavButton').textContent='Login';
   if($('balanceNav')) $('balanceNav').classList.remove('active');
   hideLogin();
+  renderHistory();
   resetNewInvoice();
   showPage('invoice');
 });
@@ -575,5 +643,6 @@ hideLogin();
 // The billing interface remains available; login is opened only when the Login tab is clicked.
 if(configIsReady() && window.supabase?.createClient){
   supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
+  loadPublicInvoiceHistory();
   supabaseClient.auth.getSession().then(({data})=>{ if(data?.session) activateSession(data.session); });
 }
