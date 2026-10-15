@@ -4,14 +4,13 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Colours Flex Printing | Billing</title>
 <link href="data:image/svg+xml,
-&lt;svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'&gt;
-&lt;rect width='64' height='64' rx='14' fill='%231769e8'/&gt;
-&lt;text x='32' y='43' text-anchor='middle'
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+<rect width='64' height='64' rx='14' fill='%231769e8'/>
+<text x='32' y='43' text-anchor='middle'
 font-family='Arial,Helvetica,sans-serif'
-font-size='30' font-weight='900' fill='white'&gt;CFP&lt;/text&gt;
-&lt;/svg&gt;" rel="icon"/>
+font-size='30' font-weight='900' fill='white'>CFP</text>
+</svg>" rel="icon"/>
 <style>
-
 :root{--navy:#08243f;--navy2:#0b3559;--pink:#ed087f;--cyan:#22d3ee;--ink:#182b3c;--muted:#68798b;--line:#d8e1ea;--bg:#f3f6fa;--white:#fff}
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;font-family:Inter,Arial,sans-serif;color:var(--ink);background:var(--bg);max-width:100%;overflow-x:hidden}
@@ -23,7 +22,7 @@ button{cursor:pointer}
 .header nav{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.nav{border:1px solid #34506a;background:transparent;color:#eaf2fa;border-radius:9px;padding:10px 13px;font-weight:700;font-size:13px}.nav.active,.nav.login-nav{background:var(--pink);border-color:var(--pink);color:#fff}
 .page{display:none}.page.active{display:block}
 .grid{display:grid;gap:16px}.grid.two{grid-template-columns:minmax(0,2fr) minmax(220px,1fr)}
-.card{background:var(--white);border:1px solid #e6ebf1;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 4px 18px rgba(12,39,64,.045);min-width:0;max-width:100%}
+.card{background:rgba(255,255,255,.82);border:1px solid #e6ebf1;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 4px 18px rgba(12,39,64,.045);min-width:0;max-width:100%}
 h2{font-size:21px;color:var(--navy2);margin:0 0 16px}.fields{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
 label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:700;color:#34465a;min-width:0}
 input,select{width:100%;min-width:0;border:1px solid #cbd7e3;border-radius:9px;background:#fff;color:#15283b;padding:11px 12px;outline:none;min-height:41px}
@@ -32,47 +31,34 @@ input:focus,select:focus{border-color:#168bd2;box-shadow:0 0 0 3px rgba(22,139,2
 .section-title{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}.section-title h2{margin:0}.section-title span{color:var(--muted);font-size:12px}
 .add-grid{display:grid;grid-template-columns:minmax(120px,1.2fr) minmax(160px,1fr) minmax(110px,.8fr) minmax(100px,.7fr) auto;gap:12px;align-items:end}
 .btn{border:0;border-radius:9px;padding:12px 17px;font-weight:800;white-space:nowrap}.btn.primary{background:var(--pink);color:#fff}.btn.secondary{background:#eaf0f6;color:var(--navy)}.whatsapp-btn{background:#168f55;color:#fff}.link-btn{border:0;background:transparent;color:var(--pink);font-weight:700}
-.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}table{border-collapse:collapse;width:100%;min-width:620px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e6ebf1;font-size:13px}th{background:#f1f5f9;color:#31465a;font-weight:800}td{background:#fff}
+.table-wrap{width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}table{border-collapse:collapse;width:100%;min-width:620px}th,td{text-align:left;padding:12px 10px;border-bottom:1px solid #e6ebf1;font-size:13px}th{background:rgba(241,245,249,.92);color:#31465a;font-weight:800}td{background:rgba(255,255,255,.86)}
 .bottom-grid{margin-top:0}.payment-simple{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.payment-result{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:16px;color:var(--muted);font-size:13px}.payment-result b{color:var(--ink)}
 .discount-box{display:grid;gap:12px}.discount-box>div{display:flex;justify-content:space-between;gap:12px;font-size:14px}.summary>div:not(.actions){display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid #edf1f5}.summary .final{font-size:19px;color:var(--pink);font-weight:800}.actions{display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex-wrap:wrap}
 .balance-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.balance-metric{display:flex;flex-direction:column;gap:10px}.balance-metric strong{font-size:25px;color:var(--navy2)}.balance-metric.pending strong{color:var(--pink)}.balance-filters{display:flex;align-items:end;gap:10px;flex-wrap:wrap}.balance-filters label{min-width:125px}.small-search{min-width:190px}.balance-detail[hidden],#loginScreen[hidden],#mainApp[hidden]{display:none!important}
 .login-screen{min-height:100vh;display:grid;place-items:center;padding:20px;background:transparent;position:relative;z-index:1}.login-card{width:min(440px,100%);background:#fff;border-radius:18px;padding:28px;box-shadow:0 12px 40px rgba(12,39,64,.12)}.login-logo{width:70px;height:70px;object-fit:cover;border-radius:12px}.login-card h1{color:var(--navy);font-size:25px}.login-card form{display:grid;gap:14px}.login-message{margin-top:10px;color:var(--pink)}.login-help{font-size:12px;color:var(--muted);line-height:1.5}
 @media(max-width:900px){.fields{grid-template-columns:repeat(2,minmax(0,1fr))}.add-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.add-grid .btn{width:100%}.grid.two{grid-template-columns:minmax(0,1fr)}.total-card{min-height:130px}}
 @media(max-width:560px){.app{padding:0 10px 18px}.header{margin:0 -10px 14px;padding:13px;align-items:flex-start}.brand h1{font-size:17px}.brand img{width:44px;height:44px}.header nav{width:100%;gap:6px}.nav{font-size:12px;padding:9px 10px}.card{padding:14px;border-radius:12px}.fields,.payment-simple{grid-template-columns:minmax(0,1fr)}.add-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.add-grid label:nth-child(1),.add-grid label:nth-child(2){grid-column:span 1}.add-grid .btn{grid-column:1/-1}.balance-summary{grid-template-columns:minmax(0,1fr)}.balance-filters{width:100%}.balance-filters label,.balance-filters .small-search{width:100%;min-width:0}.actions{justify-content:stretch}.actions .btn{flex:1 1 100%}}
-
-
 .danger{border:0;border-radius:8px;padding:9px 12px;background:#fee2e2;color:#991b1b;font-weight:700;cursor:pointer}
 .invoice-link{border:0;background:transparent;color:#087ac2;text-decoration:underline;font-weight:700;cursor:pointer;padding:0}
 .pending-text{color:#c2185b;font-weight:800}.paid-text{color:#16804a;font-weight:800}
 .balance-detail-totals{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;padding:14px;background:#f3f6fa;border-radius:10px}
-
 /* ========================================= FULL WEBSITE LOGO WATERMARK ========================================= */
-
 body { position: relative; }
-
 /* Large centered watermark covering the viewport */ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
-
 background-image: url("assets/mark-logo.jpeg"); background-repeat: no-repeat; background-position: center center; background-size: cover;
-
 opacity: 0.420; }
-
 /* Keep website content above the watermark */ body > * { position: relative; z-index: 1; }
-
 /* ========================================= LOGIN SCREEN ========================================= */
-
 #loginScreen { position: fixed !important; inset: 0; z-index: 10000 !important; min-height: 100vh; overflow-y: auto; background: rgba(243, 246, 250, 0.78) !important; }
-
 /* ========================================= RESPONSIVE WATERMARK FOR MOBILE ========================================= */
-
 @media (max-width: 600px) { body::before { background-size: cover; background-position: center center; background-repeat: no-repeat; opacity: 0.300; }
-
 #loginScreen { min-height: 100vh; min-height: 100dvh; } }
 </style>
 </head>
 <body>
-<section id="loginScreen" class="login-screen" hidden><div class="login-card"><img src="assets/logo-mark.png" alt="Colours Flex Printing logo" class="login-logo"><h1>Colours Flex Printing</h1><p>Secure Billing Portal</p><form id="loginForm"><label>Email address<input id="loginEmail" type="email" autocomplete="username" required placeholder="Enter portal email"></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter password"></label><button id="loginButton" type="submit" class="btn primary">Sign In</button></form><div id="loginMessage" role="status" class="login-message"></div><p class="login-help">Portal access is limited to authorized accounts created in Supabase Authentication.</p></div></section>
+<section id="loginScreen" class="login-screen" hidden><div class="login-card"><img src="https://coloursfp.github.io/Colours/assets/logo-mark.png" alt="Colours Flex Printing logo" class="login-logo"><h1>Colours Flex Printing</h1><p>Secure Billing Portal</p><form id="loginForm"><label>Email address<input id="loginEmail" type="email" autocomplete="username" required placeholder="Enter portal email"></label><label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="Enter password"></label><button id="loginButton" type="submit" class="btn primary">Sign In</button></form><div id="loginMessage" role="status" class="login-message"></div><p class="login-help">Portal access is limited to authorized accounts created in Supabase Authentication.</p></div></section>
 <div class="app" id="mainApp" hidden>
-<header class="header"><div class="brand"><img src="assets/logo-mark.png" alt=""><div><h1>Colours Flex Printing</h1><small>Colours Your Imagination | Your Ideas, Our Print</small></div></div><nav><button data-page="invoice" class="nav active">New Invoice</button><button data-page="history" class="nav">Invoice History</button><button data-page="balance" class="nav" id="balanceNav">Balance</button><button id="loginNavButton" class="nav login-nav" type="button">Login</button><button id="logoutButton" class="nav logout-nav" type="button" hidden>Sign Out</button></nav></header>
+<header class="header"><div class="brand"><img src="https://coloursfp.github.io/Colours/assets/logo-mark.png" alt=""><div><h1>Colours Flex Printing</h1><small>Colours Your Imagination | Your Ideas, Our Print</small></div></div><nav><button data-page="invoice" class="nav active">New Invoice</button><button data-page="history" class="nav">Invoice History</button><button data-page="balance" class="nav" id="balanceNav">Balance</button><button id="loginNavButton" class="nav login-nav" type="button">Login</button><button id="logoutButton" class="nav logout-nav" type="button" hidden>Sign Out</button></nav></header>
 <section id="invoice" class="page active"><div class="grid two"><div class="card"><h2>Customer Details</h2><div class="fields"><label>Customer Name<input id="customerName" placeholder="Enter customer name"></label><label>Phone Number<input id="customerPhone" placeholder="Enter phone number"></label><label>Invoice Number<input id="invoiceNo"></label><label>Date<input id="invoiceDate" type="date"></label></div></div><div class="card total-card"><div class="mini-label">TOTAL PAYABLE</div><div id="grandTotal" class="big-total">₹0.00</div><div id="itemCount" class="muted">0 items</div></div></div>
 <div class="card"><div class="section-title"><h2>Add Printing Item</h2><span>Examples: 3x3 • 3*3 • 3 x 3</span></div><div class="add-grid"><label>Size<input id="sizeInput" list="sizes" placeholder="" autocomplete="off"><datalist id="sizes"></datalist></label><label>Flex Type<select id="flexTypeInput"></select></label><label>Rate<input id="rateInput" type="number" min="0" step=".01" placeholder=""></label><label>Quantity<input id="qtyInput" type="number" min="1" value="1"></label><button id="addBtn" class="btn primary">+ Add Item</button></div><div id="sizeMessage" class="message"></div></div>
 <div class="card"><div class="section-title"><h2>Items</h2><button id="clearItems" class="link-btn">Clear Items</button></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Size</th><th>Flex Type</th><th>Rate</th><th>Qty</th><th>Amount</th><th></th></tr></thead><tbody id="itemsBody"></tbody></table></div></div>
@@ -83,8 +69,7 @@ opacity: 0.420; }
 <div class="balance-filters transaction-filters">
 <label>Payment Method<select id="transactionMethodFilter"><option value="all">All methods</option><option value="Cash">Cash</option><option value="Credit Card">Credit Card</option><option value="PhonePe">PhonePe</option><option value="Paytm">Paytm</option><option value="GPay">GPay</option><option value="QR Scan">QR Scan</option></select></label>
 <div class="balance-metric"><span id="transactionTotalLabel">Total Amount</span><strong id="transactionTotalAmount">₹0.00</strong></div>
-</div><div class="table-wrap"><table><thead><tr><th>Date &amp; Time</th><th>Invoice</th><th>Customer</th><th>Payment Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody id="transactionsBody"></tbody></table></div></div><div id="balanceDetail" class="card balance-detail" hidden></div></section>
-
+</div><div class="table-wrap"><table><thead><tr><th>Date & Time</th><th>Invoice</th><th>Customer</th><th>Payment Method</th><th>Details</th><th>Amount Received</th></tr></thead><tbody id="transactionsBody"></tbody></table></div></div><div id="balanceDetail" class="card balance-detail" hidden></div></section>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-config.js?v=24"></script><script src="script.js?v=28"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="https://coloursfp.github.io/Colours/supabase-config.js?v=24"></script><script src="https://coloursfp.github.io/Colours/script.js?v=28"></script>
 </body></html>
