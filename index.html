@@ -46,51 +46,27 @@ input:focus,select:focus{border-color:#168bd2;box-shadow:0 0 0 3px rgba(22,139,2
 .pending-text{color:#c2185b;font-weight:800}.paid-text{color:#16804a;font-weight:800}
 .balance-detail-totals{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;padding:14px;background:#f3f6fa;border-radius:10px}
 
-/* Subtle repeating logo watermark across the entire website */
-body {
-  position: relative;
-}
+/* ========================================= FULL WEBSITE LOGO WATERMARK ========================================= */
 
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
+body { position: relative; }
 
-  background-image: url("assets/mark-logo.jpeg");
-  background-repeat: repeat;
-  background-position: center center;
-  background-size: 220px auto;
+/* Large centered watermark covering the viewport */ body::before { content: ""; position: fixed; inset: 0; z-index: 0; pointer-events: none;
 
-  opacity: 0.445;
-}
+background-image: url("assets/mark-logo.jpeg"); background-repeat: no-repeat; background-position: center center; background-size: cover;
 
-/* Keep website content above the watermark */
-body > * {
-  position: relative;
-  z-index: 1;
-}
+opacity: 0.12; }
 
-/* Login screen */
-#loginScreen {
-  position: fixed !important;
-  inset: 0;
-  z-index: 10000 !important;
-  min-height: 100vh;
-  overflow-y: auto;
-  background: rgba(243, 246, 250, 0.78) !important;
-}
+/* Keep website content above the watermark */ body > * { position: relative; z-index: 1; }
 
-/* Responsive watermark for mobile devices */
-@media (max-width: 600px) {
-  body::before {
-    background-size: 150px auto;
-    background-position: center center;
-    opacity: 0.435;
-  }
-}
+/* ========================================= LOGIN SCREEN ========================================= */
 
+#loginScreen { position: fixed !important; inset: 0; z-index: 10000 !important; min-height: 100vh; overflow-y: auto; background: rgba(243, 246, 250, 0.78) !important; }
+
+/* ========================================= RESPONSIVE WATERMARK FOR MOBILE ========================================= */
+
+@media (max-width: 600px) { body::before { background-size: cover; background-position: center center; background-repeat: no-repeat; opacity: 0.10; }
+
+#loginScreen { min-height: 100vh; min-height: 100dvh; } }
 </style>
 </head>
 <body>
