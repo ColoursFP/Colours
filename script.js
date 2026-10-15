@@ -84,15 +84,9 @@ function localPersist(){
 }
 async function persistInvoices(){
   localPersist();
-  if(supabaseClient && !currentUser){
-    try{
-      const publicRows=history.filter(inv=>!inv.hiddenFromHistory).map(inv=>({invoice_number:String(inv.id),invoice_date:inv.date||new Date().toISOString().slice(0,10),customer_name:inv.name||'Walk-in Customer',customer_phone:inv.phone||'',total:Number(inv.total)||0,created_at:inv.createdAt||new Date().toISOString()}));
-      if(publicRows.length){const {error}=await supabaseClient.from('public_invoice_summaries').upsert(publicRows,{onConflict:'invoice_number'});if(error)throw error;}
-      await loadPublicInvoiceHistory(true);
-    }catch(e){console.warn('Public summary sync failed',e);}
-    return true;
-  }
-  if(!supabaseClient || !currentUser || !cloudReady) return true;
+  if(!supabaseClient) return true;
+  // Public shared mode: full invoice records are stored in Supabase so any browser can edit/collect.
+  if(!cloudReady && !currentUser){ console.warn('Cloud invoices are not loaded yet; saving locally only.'); return true; }
   try{
     const rows=history.map(inv=>({
       id:String(inv.id),
@@ -104,7 +98,7 @@ async function persistInvoices(){
       pending:Math.max(0,(Number(inv.total)||0)-(Number(inv.advance)||0)),
       invoice_data:inv,
       updated_at:new Date().toISOString(),
-      created_by:currentUser.id
+      created_by:currentUser?.id||null
     }));
     if(rows.length){
       const {error}=await supabaseClient.from('invoices').upsert(rows,{onConflict:'id'});
@@ -120,11 +114,11 @@ async function persistInvoices(){
   }
 }
 async function loadCloudInvoices(){
-  if(!supabaseClient || !currentUser) return;
+  if(!supabaseClient) return;
   const {data,error}=await supabaseClient.from('invoices').select('invoice_data').order('invoice_date',{ascending:false});
   if(error) throw error;
   const cloud=(data||[]).map(row=>row.invoice_data).filter(Boolean);
-  // Merge by invoice ID so this browser's existing invoices are not silently discarded.
+  // Shared cloud is authoritative across browsers; merge any local-only invoices without overwriting cloud versions.
   const map=new Map();
   cloud.forEach(inv=>map.set(String(inv.id),inv));
   history.forEach(inv=>{if(!map.has(String(inv.id)))map.set(String(inv.id),inv);});
@@ -256,14 +250,18 @@ function currentInvoice(){let t=totals();return{id:$('invoiceNo').value||invoice
 async function saveInvoiceRecord(inv){
   // A recorded invoice is immutable. Never overwrite invoice details under an existing ID.
   const existing=history.find(x=>String(x.id)===String(inv.id));
-  if(existing){
-    alert('This invoice has already been recorded and is locked. Start a New Invoice for any changes.');
-    return existing;
-  }
   const now=new Date().toISOString();
-  inv={...inv,items:(inv.items||[]).map(item=>({...item})),payments:[],createdAt:now,hiddenFromHistory:false,locked:true};
-  if(Number(inv.advance)>0) inv.payments.push({amount:Number(inv.advance),method:inv.paymentMethod||'Cash',datetime:now,note:'Advance at invoice creation'});
-  history.unshift(inv);
+  if(existing){
+    inv={...existing,...inv,items:(inv.items||[]).map(item=>({...item})),createdAt:existing.createdAt||now,updatedAt:now,hiddenFromHistory:false,locked:false, payments:Array.isArray(existing.payments)?existing.payments:[]};
+    // Preserve the payment ledger and avoid reducing paid amount when editing invoice details.
+    const paid=inv.payments.reduce((sum,p)=>sum+(Number(p.amount)||0),0);
+    inv.advance=Math.max(Number(inv.advance)||0,paid); inv.balance=Math.max(0,(Number(inv.total)||0)-inv.advance);
+    history=history.map(x=>String(x.id)===String(inv.id)?inv:x);
+  }else{
+    inv={...inv,items:(inv.items||[]).map(item=>({...item})),payments:[],createdAt:now,hiddenFromHistory:false,locked:false};
+    if(Number(inv.advance)>0) inv.payments.push({amount:Number(inv.advance),method:inv.paymentMethod||'Cash',datetime:now,note:'Advance at invoice creation'});
+    history.unshift(inv);
+  }
   await persistInvoices();
   renderHistory();refreshPeriodYears();renderBalance();
   return inv;
@@ -271,11 +269,9 @@ async function saveInvoiceRecord(inv){
 function loadInvoice(id){
   const x=history.find(v=>String(v.id)===String(id));
   if(!x)return;
-  if(!currentUser){alert('Please sign in to open an invoice for editing.');return;}
-  $('customerName').value=x.name||''; $('customerPhone').value=x.phone||''; $('invoiceDate').value=x.date||new Date().toISOString().slice(0,10); $('invoiceNo').value=x.id; items=(x.items||[]).map(item=>({...item})); $('discountInput').value=Number(x.discountAmount??0); $('advanceInput').value=Number(x.advance??0); if($('paymentMethod'))$('paymentMethod').value=x.paymentMethod||'Cash'; renderItems();renderTotals();showPage('invoice');alert('Invoice opened. To save changes as a new record, change the invoice number before generating. Existing recorded invoices are preserved.');
+  $('customerName').value=x.name||''; $('customerPhone').value=x.phone||''; $('invoiceDate').value=x.date||new Date().toISOString().slice(0,10); $('invoiceNo').value=x.id; items=(x.items||[]).map(item=>({...item})); $('discountInput').value=Number(x.discountAmount??0); $('advanceInput').value=Number(x.advance??0); if($('paymentMethod'))$('paymentMethod').value=x.paymentMethod||'Cash'; renderItems();renderTotals();showPage('invoice');alert('Invoice opened for editing. Generate/save to update this shared invoice for all browsers.');
 }
 async function deleteInvoice(id){
-  if(!currentUser){alert('Please sign in to archive invoices.');return;}
   if(!confirm('Hide this invoice from Invoice History? It will remain in Balance & Transactions for record keeping.'))return;
   const inv=history.find(x=>String(x.id)===String(id));
   if(!inv)return;
@@ -284,7 +280,7 @@ async function deleteInvoice(id){
   await persistInvoices();
   renderHistory();refreshPeriodYears();renderBalance();
 }
-function renderHistory(){if(!currentUser){renderPublicHistory();return;}const head=document.querySelector('#history table thead');if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr>';let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>!x.hiddenFromHistory&&norm(x.id+' '+x.name+' '+x.phone).includes(q)).sort(compareInvoiceCreationNewestFirst);$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${escapeHtml(x.id)}</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.phone||'-')}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${escapeHtml(x.id)}')">Edit</button> <button class="btn whatsapp-btn" onclick="shareSavedInvoice('${escapeHtml(x.id)}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${escapeHtml(x.id)}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${escapeHtml(x.id)}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
+function renderHistory(){if(!cloudReady && !currentUser){renderPublicHistory();return;}const head=document.querySelector('#history table thead');if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr>';let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>!x.hiddenFromHistory&&norm(x.id+' '+x.name+' '+x.phone).includes(q)).sort(compareInvoiceCreationNewestFirst);$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${escapeHtml(x.id)}</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.phone||'-')}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${escapeHtml(x.id)}')">Edit</button> <button class="btn whatsapp-btn" onclick="shareSavedInvoice('${escapeHtml(x.id)}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${escapeHtml(x.id)}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${escapeHtml(x.id)}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
 function choosePaymentMethod(defaultMethod='Cash'){
   return new Promise(resolve=>{
     const methods=['Cash','Credit Card','PhonePe','Paytm','GPay','QR Scan'];
@@ -510,7 +506,6 @@ $('printBtn').onclick=async()=>{
   if(!items.length)return alert('Add at least one item.');
   const inv=currentInvoice();
   if(!inv.items.every(x=>(String(x.flexType||'')==='Bond'||String(x.size||'').trim()) && Number.isFinite(Number(x.rate)) && Number(x.rate)>=0))return alert('Check each item size and rate before generating.');
-  if(history.some(x=>String(x.id)===String(inv.id)))return alert('This invoice number is already recorded and locked. Start a New Invoice.');
   await saveInvoiceRecord(inv);
   // Save the invoice to history without opening a print window or preview.
   resetNewInvoice();
@@ -525,11 +520,12 @@ function printInvoice(inv){
 async function collectPublicPayment(id,total){
   // If this browser has the full invoice record, use the normal collection flow directly.
   // Do not ask for an amount here first, or the user gets two amount prompts.
-  const local=history.find(x=>String(x.id)===String(id));
+  let local=history.find(x=>String(x.id)===String(id));
+  if(!local && supabaseClient){
+    try{const {data,error}=await supabaseClient.from('invoices').select('invoice_data').eq('id',String(id)).maybeSingle();if(error)throw error;if(data?.invoice_data){local=data.invoice_data;history=[local,...history.filter(x=>String(x.id)!==String(id))];localPersist();}}catch(e){alert('Could not load shared invoice: '+e.message+'\nApply the included public-edit SQL in Supabase first.');return;}
+  }
   if(local){ await collectPayment(String(id)); return; }
-  // Public summaries contain no payment ledger, so a payment entered here cannot safely
-  // update the shared invoice balance. Explain that before collecting any amount.
-  alert('This browser only has the public invoice summary for '+id+'. Sign in or open the browser that contains the full invoice record to record a payment and update the shared Balance.');
+  alert('Full shared invoice not found. Apply the included public-edit SQL and refresh.');
 }
 function sharePublicInvoice(id,date,total){
   const local=history.find(x=>String(x.id)===String(id));
@@ -675,5 +671,6 @@ hideLogin();
 if(configIsReady() && window.supabase?.createClient){
   supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
   loadPublicInvoiceHistory();
+  loadCloudInvoices().catch(e=>{console.error('Public cloud invoice load failed',e); publicHistoryError=e.message||'Cloud invoice load failed'; renderHistory();});
   supabaseClient.auth.getSession().then(({data})=>{ if(data?.session) activateSession(data.session); });
 }
