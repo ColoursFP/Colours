@@ -86,7 +86,7 @@ async function persistInvoices(){
   localPersist();
   if(supabaseClient && !currentUser){
     try{
-      const publicRows=history.filter(inv=>!inv.hiddenFromHistory).map(inv=>({invoice_number:String(inv.id),invoice_date:inv.date||new Date().toISOString().slice(0,10),total:Number(inv.total)||0,created_at:inv.createdAt||new Date().toISOString()}));
+      const publicRows=history.filter(inv=>!inv.hiddenFromHistory).map(inv=>({invoice_number:String(inv.id),invoice_date:inv.date||new Date().toISOString().slice(0,10),customer_name:inv.name||'Walk-in Customer',customer_phone:inv.phone||'',total:Number(inv.total)||0,created_at:inv.createdAt||new Date().toISOString()}));
       if(publicRows.length){const {error}=await supabaseClient.from('public_invoice_summaries').upsert(publicRows,{onConflict:'invoice_number'});if(error)throw error;}
       await loadPublicInvoiceHistory(true);
     }catch(e){console.warn('Public summary sync failed',e);}
@@ -109,6 +109,8 @@ async function persistInvoices(){
     if(rows.length){
       const {error}=await supabaseClient.from('invoices').upsert(rows,{onConflict:'id'});
       if(error) throw error;
+      const publicRows=history.filter(inv=>!inv.hiddenFromHistory).map(inv=>({invoice_number:String(inv.id),invoice_date:inv.date||new Date().toISOString().slice(0,10),customer_name:inv.name||'Walk-in Customer',customer_phone:inv.phone||'',total:Number(inv.total)||0,created_at:inv.createdAt||new Date().toISOString()}));
+      if(publicRows.length){const pub=await supabaseClient.from('public_invoice_summaries').upsert(publicRows,{onConflict:'invoice_number'});if(pub.error)console.warn('Public summary sync failed',pub.error);}
     }
     return true;
   }catch(e){
@@ -138,8 +140,8 @@ async function loadPublicInvoiceHistory(force=false){
   publicHistoryLoading=true;
   publicHistoryError='';
   try{
-    // This view exposes only invoice number, date, and total; it never returns customer names, phone numbers, line items, or payment records.
-    const {data,error}=await supabaseClient.from('public_invoice_history').select('invoice_number,invoice_date,total,created_at').order('created_at',{ascending:false,nullsFirst:false}).order('invoice_date',{ascending:false}).order('invoice_number',{ascending:false});
+    // Public history shows invoice number, date, customer name, phone, and total as requested.
+    const {data,error}=await supabaseClient.from('public_invoice_history').select('invoice_number,invoice_date,customer_name,customer_phone,total,created_at').order('created_at',{ascending:false,nullsFirst:false}).order('invoice_date',{ascending:false}).order('invoice_number',{ascending:false});
     if(error) throw error;
     publicHistory=Array.isArray(data)?data:[];
     publicHistoryLoaded=true;
@@ -155,13 +157,13 @@ async function loadPublicInvoiceHistory(force=false){
 function renderPublicHistory(){
   const q=norm($('historySearch')?.value||'');
   const head=document.querySelector('#history table thead');
-  if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Total</th><th>Access</th></tr>';
+  if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr>';
   if(!publicHistoryLoaded){
-    $('historyBody').innerHTML=`<tr><td colspan="4" style="text-align:center;color:#7a8794">${publicHistoryLoading?'Loading shared invoice history…':(publicHistoryError?`Could not load shared invoices: ${escapeHtml(publicHistoryError)}. Ask the site administrator to apply the public history SQL setup.`:'Loading shared invoice history…')}</td></tr>`;
+    $('historyBody').innerHTML=`<tr><td colspan="6" style="text-align:center;color:#7a8794">${publicHistoryLoading?'Loading shared invoice history…':(publicHistoryError?`Could not load shared invoices: ${escapeHtml(publicHistoryError)}. Ask the site administrator to apply the public history SQL setup.`:'Loading shared invoice history…')}</td></tr>`;
     return;
   }
   const rows=publicHistory.filter(x=>norm(String(x.invoice_number||'')+' '+String(x.invoice_date||'')).includes(q));
-  $('historyBody').innerHTML=rows.length?rows.map(x=>`<tr><td>${escapeHtml(String(x.invoice_number||''))}</td><td>${escapeHtml(String(x.invoice_date||''))}</td><td>${money(Number(x.total)||0)}</td><td><span class="muted">Public summary</span> <button class="btn whatsapp-btn" onclick="sharePublicInvoice('${escapeHtml(String(x.invoice_number||''))}','${escapeHtml(String(x.invoice_date||''))}',${Number(x.total)||0})">Share via WhatsApp</button></td></tr>`).join(''):'<tr><td colspan="4" style="text-align:center;color:#7a8794">No shared invoices found.</td></tr>';
+  $('historyBody').innerHTML=rows.length?rows.map(x=>`<tr><td>${escapeHtml(String(x.invoice_number||''))}</td><td>${escapeHtml(String(x.invoice_date||''))}</td><td>${escapeHtml(String(x.customer_name||'Walk-in Customer'))}</td><td>${escapeHtml(String(x.customer_phone||'-'))}</td><td>${money(Number(x.total)||0)}</td><td><button class="btn whatsapp-btn" onclick="sharePublicInvoice('${escapeHtml(String(x.invoice_number||''))}','${escapeHtml(String(x.invoice_date||''))}',${Number(x.total)||0})">Share via WhatsApp</button> <button class="btn primary" onclick="collectPublicPayment('${escapeHtml(String(x.invoice_number||''))}',${Number(x.total)||0})">Collect</button></td></tr>`).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No shared invoices found.</td></tr>';
 }
 function escapeHtml(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
 function initSupabase(){
@@ -269,7 +271,8 @@ async function saveInvoiceRecord(inv){
 function loadInvoice(id){
   const x=history.find(v=>String(v.id)===String(id));
   if(!x)return;
-  alert('Recorded invoices cannot be edited. You can review this invoice in Balance & Transactions.');
+  if(!currentUser){alert('Please sign in to open an invoice for editing.');return;}
+  $('customerName').value=x.name||''; $('customerPhone').value=x.phone||''; $('invoiceDate').value=x.date||new Date().toISOString().slice(0,10); $('invoiceNo').value=x.id; items=(x.items||[]).map(item=>({...item})); $('discountInput').value=Number(x.discountAmount??0); $('advanceInput').value=Number(x.advance??0); if($('paymentMethod'))$('paymentMethod').value=x.paymentMethod||'Cash'; renderItems();renderTotals();showPage('invoice');alert('Invoice opened. To save changes as a new record, change the invoice number before generating. Existing recorded invoices are preserved.');
 }
 async function deleteInvoice(id){
   if(!currentUser){alert('Please sign in to archive invoices.');return;}
@@ -281,7 +284,7 @@ async function deleteInvoice(id){
   await persistInvoices();
   renderHistory();refreshPeriodYears();renderBalance();
 }
-function renderHistory(){if(!currentUser){renderPublicHistory();return;}const head=document.querySelector('#history table thead');if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr>';let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>!x.hiddenFromHistory&&norm(x.id+' '+x.name+' '+x.phone).includes(q)).sort(compareInvoiceCreationNewestFirst);$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${escapeHtml(x.id)}</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.phone||'-')}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${escapeHtml(x.id)}')">Locked</button> <button class="btn whatsapp-btn" onclick="shareSavedInvoice('${escapeHtml(x.id)}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${escapeHtml(x.id)}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${escapeHtml(x.id)}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
+function renderHistory(){if(!currentUser){renderPublicHistory();return;}const head=document.querySelector('#history table thead');if(head)head.innerHTML='<tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Action</th></tr>';let q=norm($('historySearch')?.value||'');let rows=history.filter(x=>!x.hiddenFromHistory&&norm(x.id+' '+x.name+' '+x.phone).includes(q)).sort(compareInvoiceCreationNewestFirst);$('historyBody').innerHTML=rows.length?rows.map(x=>{let bal=Math.max(0,Number(x.balance??(Number(x.total||0)-Number(x.advance||0))));return `<tr><td>${escapeHtml(x.id)}</td><td>${escapeHtml(x.date)}</td><td>${escapeHtml(x.name)}</td><td>${escapeHtml(x.phone||'-')}</td><td>${money(x.total)}</td><td><button class="btn secondary" onclick="loadInvoice('${escapeHtml(x.id)}')">Edit</button> <button class="btn whatsapp-btn" onclick="shareSavedInvoice('${escapeHtml(x.id)}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${escapeHtml(x.id)}')">Collect</button>`:''} <button class="danger" onclick="deleteInvoice('${escapeHtml(x.id)}')">Delete</button></td></tr>`}).join(''):'<tr><td colspan="6" style="text-align:center;color:#7a8794">No saved invoices.</td></tr>'}
 function choosePaymentMethod(defaultMethod='Cash'){
   return new Promise(resolve=>{
     const methods=['Cash','Credit Card','PhonePe','Paytm','GPay','QR Scan'];
@@ -518,6 +521,9 @@ function printInvoice(inv){
   const rows=(inv.items||[]).map(x=>`<tr><td>${x.size}</td><td>${x.flexType||'Normal Flex'}</td><td>${x.qty}</td><td>${money(x.rate)}</td><td>${money(x.rate*x.qty)}</td></tr>`).join('');
   const w=open('','_blank'); if(!w){alert('Please allow pop-ups to generate the invoice.');return;}
   w.document.write(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${inv.id}</title><style>*{box-sizing:border-box}body{font-family:Arial;color:#18212b}.page{max-width:850px;margin:auto;padding:30px}.head{display:flex;gap:18px;border-bottom:4px solid #ed087f;padding-bottom:15px}.head img{width:95px;height:95px;object-fit:cover;border-radius:50%}h1{margin:5px 0;color:#07345e;text-transform:uppercase}.tag{color:#ed087f;font-weight:bold}.biz{font-size:12px;line-height:1.5;margin-top:6px}.meta{display:flex;justify-content:space-between;background:#f1f5f8;padding:14px;margin:20px 0;border-radius:8px}table{width:100%;border-collapse:collapse}th,td{padding:11px;border-bottom:1px solid #ddd;text-align:left}th{background:#07345e;color:#fff}.totals{margin-left:auto;width:min(100%,360px);margin-top:20px}.totals div{display:flex;justify-content:space-between;gap:12px;padding:7px}.final{border-top:2px solid #07345e;margin-top:5px;padding-top:12px;font-size:21px;font-weight:bold;color:#ed087f}.footer{text-align:center;margin-top:45px;border-top:1px solid #ddd;padding-top:14px;font-size:12px;color:#667}@media print{.page{padding:10mm}}@media(max-width:600px){.page{padding:12px}.head{gap:10px}.head img{width:60px;height:60px}th,td{padding:5px;font-size:12px}}</style></head><body><div class="page"><div class="head"><img src="assets/logo-mark.png"><div><h1>Colours Flex Printing</h1><div class="tag">COLOURS YOUR IMAGINATION</div><div class="biz">Vinyl, Frontlit, lighting boards & flex printing<br>Besides Muthooth Finance, 1st Floor, V.T.Nagar Mall, Chintapally, Nalgonda - 508250<br>Phone: 77299 47523 | Email: coloursdigital4u@gmail.com</div></div></div><div class="meta"><div><b>Bill To:</b><br>${inv.name||'Walk-in Customer'}<br>${inv.phone||''}</div><div><b>Invoice:</b> ${inv.id}<br><b>Date:</b> ${inv.date||''}</div></div><table><thead><tr><th>Size</th><th>Flex Type</th><th>Qty</th><th>Rate</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><b>${money(sub)}</b></div><div><span>Discount (${percent.toFixed(2).replace(/\.?0+$/,'')}%)</span><b>-${money(discount)}</b></div><div class="final"><span>INVOICE TOTAL</span><span>${money(total)}</span></div><div><span>Amount Paid / Collected</span><b>${money(paid)}</b></div><div><span>Payment Method</span><b>${inv.paymentMethod||'Cash'}</b></div><div><span>BALANCE DUE</span><b>${money(balance)}</b></div></div><div class="footer">Thank you for your business!<br>Colours Flex Printing — Colours Your Imagination</div></div><script>onload=()=>setTimeout(()=>print(),400)<\\/script></body></html>`);w.document.close();
+}
+function collectPublicPayment(id,total){
+  const amountRaw=prompt('Invoice: '+id+'\nInvoice total: '+money(total)+'\nEnter amount collected:');if(amountRaw===null)return;const amount=Number(amountRaw);if(!Number.isFinite(amount)||amount<=0)return alert('Enter a valid payment amount.');const method=prompt('Payment method (Cash, Credit Card, PhonePe, Paytm, GPay, QR Scan):','Cash');if(method===null)return;const local=history.find(x=>String(x.id)===String(id));if(local){collectPayment(id);return;}alert('Payment noted for '+id+': '+money(amount)+' via '+method+'. For this collection to update the shared Balance records, sign in and collect from the logged-in portal.');
 }
 function sharePublicInvoice(id,date,total){
   const local=history.find(x=>String(x.id)===String(id));
