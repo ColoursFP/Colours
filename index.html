@@ -46,36 +46,48 @@ input:focus,select:focus{border-color:#168bd2;box-shadow:0 0 0 3px rgba(22,139,2
 .pending-text{color:#c2185b;font-weight:800}.paid-text{color:#16804a;font-weight:800}
 .balance-detail-totals{display:flex;gap:18px;flex-wrap:wrap;margin:18px 0;padding:14px;background:#f3f6fa;border-radius:10px}
 
-/* Subtle full-site logo watermark using the same logo as the splash screen */
+/* Subtle repeating logo watermark across the entire website */
 body {
   position: relative;
 }
+
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+
   background-image: url("assets/splash_screen.png");
-  background-repeat: no-repeat;
+  background-repeat: repeat;
   background-position: center center;
-  background-size: min(62vw, 560px);
-  opacity: 0.055;
+  background-size: 220px auto;
+
+  opacity: 0.145;
 }
-body > * { position: relative; z-index: 1; }
+
+/* Keep website content above the watermark */
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Login screen */
 #loginScreen {
   position: fixed !important;
   inset: 0;
   z-index: 10000 !important;
   min-height: 100vh;
   overflow-y: auto;
-  background: rgba(243,246,250,.78) !important;
+  background: rgba(243, 246, 250, 0.78) !important;
 }
+
+/* Responsive watermark for mobile devices */
 @media (max-width: 600px) {
   body::before {
-    background-size: 82vw;
+    background-size: 150px auto;
     background-position: center center;
-    opacity: 0.045;
+    opacity: 0.135;
   }
 }
 
