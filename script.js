@@ -84,8 +84,8 @@ function localPersist(){
   catch(e){ console.error(e); alert('Could not save locally in this browser.'); return false; }
 }
 async function persistInvoices(){
-  if(currentUser && currentRole !== 'admin'){
-    console.warn('Staff cannot save or edit invoice records directly. Use the payment collection function.');
+  if(currentUser && currentRole==='staff'){
+    console.warn('Staff cannot overwrite invoice records directly.');
     return false;
   }
   localPersist();
@@ -130,10 +130,10 @@ async function loadCloudInvoices(){
   history=[...map.values()].sort(compareInvoiceCreationNewestFirst);
   localPersist();
   cloudReady=true;
-  // Only the owner/admin may upload local-only records. Staff must never upsert invoice data.
-  if(currentRole === 'admin') await persistInvoices();
+  // Only the owner can bulk-sync local records. Staff never overwrite invoice details.
+  if(currentRole==='admin') await persistInvoices();
   renderHistory(); refreshPeriodYears(); renderBalance();
-  if(currentRole === 'staff') renderStaffActions();
+  if(currentRole==='staff') renderStaffActions();
 }
 async function loadPublicInvoiceHistory(force=false){
   if(!supabaseClient || publicHistoryLoading || (publicHistoryLoaded && !force)) return;
@@ -178,6 +178,7 @@ function initSupabase(){
     if(session) activateSession(session);
     else {
       currentUser=null; currentRole=null; cloudReady=false;
+      showLogin('Please sign in to continue.');
       if($('logoutButton')) $('logoutButton').hidden=true;
       if($('loginNavButton')) $('loginNavButton').textContent='Login';
       if($('balanceNav')) $('balanceNav').classList.remove('active');
@@ -195,96 +196,67 @@ function showLogin(message=''){
 function hideLogin(){
   $('loginScreen').hidden=true;
   $('loginScreen').style.display='none';
-  if(!currentUser) $('mainApp').hidden=false;
 }
-
-function isAdmin(){ return currentRole === 'admin'; }
-function isStaff(){ return currentRole === 'staff'; }
-
+function isAdmin(){ return currentRole==='admin'; }
+function isStaff(){ return currentRole==='staff'; }
 async function loadCurrentRole(){
-  if(!supabaseClient || !currentUser) { currentRole=null; return null; }
-  const {data,error}=await supabaseClient.from('portal_roles')
-    .select('role').eq('user_id',currentUser.id).maybeSingle();
+  if(!supabaseClient || !currentUser) throw new Error('Please sign in first.');
+  const {data,error}=await supabaseClient.from('portal_roles').select('role').eq('user_id',currentUser.id).maybeSingle();
   if(error) throw error;
   currentRole=data?.role||null;
-  if(!currentRole) throw new Error('No portal role is assigned to this account. Ask the owner to assign admin or staff in Supabase.');
+  if(!['admin','staff'].includes(currentRole)) throw new Error('No valid portal role is assigned to this account.');
   applyRoleUI();
   return currentRole;
 }
-
-function applyRoleUI(){
-  const historyNav=document.querySelector('.nav[data-page="history"]');
-  const balanceNav=$('balanceNav');
-  const invoiceNav=document.querySelector('.nav[data-page="invoice"]');
-  const invoicePage=$('invoice');
-  const historyPage=$('history');
-  const balancePage=$('balance');
-  if(historyNav) historyNav.hidden=isStaff();
-  if(balanceNav) balanceNav.hidden=isStaff();
-  if(invoiceNav) invoiceNav.hidden=isStaff();
-  if(historyPage && isStaff()) historyPage.hidden=true; else if(historyPage) historyPage.hidden=false;
-  if(balancePage && isStaff()) balancePage.hidden=true; else if(balancePage) balancePage.hidden=false;
-  let staffNav=document.getElementById('staffActionsNav');
-  if(isStaff()){
-    if(!staffNav){
-      staffNav=document.createElement('button');
-      staffNav.id='staffActionsNav';
-      staffNav.type='button';
-      staffNav.className='nav active';
-      staffNav.textContent='Share / Collect';
-      staffNav.addEventListener('click',()=>showPage('staffActions'));
-      document.querySelector('.header nav')?.insertBefore(staffNav,$('loginNavButton'));
-    }
-    staffNav.hidden=false;
-    if(invoicePage) invoicePage.hidden=true;
-    ensureStaffActionsPage();
-    showPage('staffActions');
-  } else {
-    if(staffNav) staffNav.hidden=true;
-    if(invoicePage) invoicePage.hidden=false;
-  }
-}
-
 function ensureStaffActionsPage(){
   let page=document.getElementById('staffActions');
   if(page) return page;
-  page=document.createElement('section');
-  page.id='staffActions';
-  page.className='page';
-  page.innerHTML=`<div class="card">
-    <div class="section-title"><h2>Share / Collect Existing Invoices</h2><input id="staffInvoiceSearch" class="small-search" placeholder="Search invoice or customer"></div>
-    <p class="muted">Staff access: share existing invoices through WhatsApp and record payments. Invoice details cannot be edited here.</p>
-    <div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Balance Due</th><th>Actions</th></tr></thead><tbody id="staffActionsBody"></tbody></table></div>
-  </div>`;
+  page=document.createElement('section'); page.id='staffActions'; page.className='page';
+  page.innerHTML=`<div class="card"><div class="section-title"><h2>Share / Collect Existing Invoices</h2><input id="staffInvoiceSearch" class="small-search" placeholder="Search invoice or customer"></div><p class="muted">Share existing invoices via WhatsApp or record a payment. Invoice History and Balance are not available in the staff portal.</p><div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Date</th><th>Customer</th><th>Phone</th><th>Total</th><th>Balance Due</th><th>Actions</th></tr></thead><tbody id="staffActionsBody"></tbody></table></div></div>`;
   document.querySelector('.app')?.appendChild(page);
   page.querySelector('#staffInvoiceSearch').addEventListener('input',renderStaffActions);
   return page;
 }
-
 function renderStaffActions(){
   if(!isStaff()) return;
   ensureStaffActionsPage();
   const q=norm($('staffInvoiceSearch')?.value||'');
-  const rows=history.filter(inv=>!inv.hiddenFromHistory && norm([inv.id,inv.name,inv.phone].join(' ')).includes(q))
-    .sort(compareInvoiceCreationNewestFirst);
-  const body=$('staffActionsBody');
-  if(!body) return;
-  body.innerHTML=rows.length?rows.map(inv=>{
-    const bal=invoiceBalance(inv);
-    return `<tr><td>${escapeHtml(inv.id)}</td><td>${escapeHtml(inv.date||'')}</td><td>${escapeHtml(inv.name||'Walk-in Customer')}</td><td>${escapeHtml(inv.phone||'-')}</td><td>${money(invoiceTotal(inv))}</td><td>${money(bal)}</td><td><button class="btn whatsapp-btn" onclick="shareSavedInvoice('${escapeHtml(inv.id)}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${escapeHtml(inv.id)}')">Collect</button>`:''}</td></tr>`;
-  }).join(''):'<tr><td colspan="7" style="text-align:center;color:#7a8794">No existing invoices found.</td></tr>';
+  const rows=history.filter(inv=>!inv.hiddenFromHistory && norm([inv.id,inv.name,inv.phone].join(' ')).includes(q)).sort(compareInvoiceCreationNewestFirst);
+  const body=$('staffActionsBody'); if(!body)return;
+  body.innerHTML=rows.length?rows.map(inv=>{const bal=invoiceBalance(inv);return `<tr><td>${escapeHtml(inv.id)}</td><td>${escapeHtml(inv.date||'')}</td><td>${escapeHtml(inv.name||'Walk-in Customer')}</td><td>${escapeHtml(inv.phone||'-')}</td><td>${money(invoiceTotal(inv))}</td><td>${money(bal)}</td><td><button class="btn whatsapp-btn" onclick="shareSavedInvoice('${escapeHtml(inv.id)}')">Share via WhatsApp</button> ${bal>0?`<button class="btn primary" onclick="collectPayment('${escapeHtml(inv.id)}')">Collect</button>`:''}</td></tr>`}).join(''):'<tr><td colspan="7" style="text-align:center;color:#7a8794">No invoices found.</td></tr>';
 }
-
+function applyRoleUI(){
+  const historyNav=document.querySelector('.nav[data-page="history"]');
+  const balanceNav=$('balanceNav');
+  if(historyNav) historyNav.hidden=isStaff();
+  if(balanceNav) balanceNav.hidden=isStaff();
+  const invoiceNav=document.querySelector('.nav[data-page="invoice"]');
+  if(invoiceNav) invoiceNav.hidden=false;
+  const historyPage=$('history'), balancePage=$('balance'), invoicePage=$('invoice');
+  if(historyPage) historyPage.hidden=isStaff();
+  if(balancePage) balancePage.hidden=isStaff();
+  if(invoicePage) invoicePage.hidden=false;
+  let staffNav=document.getElementById('staffActionsNav');
+  if(isStaff()){
+    if(!staffNav){staffNav=document.createElement('button');staffNav.id='staffActionsNav';staffNav.type='button';staffNav.className='nav';staffNav.textContent='Share / Collect';staffNav.addEventListener('click',()=>showPage('staffActions'));document.querySelector('.header nav')?.insertBefore(staffNav,$('loginNavButton'));}
+    staffNav.hidden=false; ensureStaffActionsPage();
+  } else if(staffNav) staffNav.hidden=true;
+}
 async function activateSession(session){
   currentUser=session.user;
-  hideLogin(); $('mainApp').hidden=false;
+  $('mainApp').hidden=false;
   $('logoutButton').hidden=false; $('loginNavButton').textContent='Logged In';
-  $('loginMessage').textContent='';
-  try{ await loadCurrentRole(); await loadCloudInvoices(); setupPeriodFilters(); renderBalance(); applyRoleUI(); }
-  catch(e){ console.error(e); $('loginMessage').textContent='Signed in, but could not load cloud invoices: '+e.message; }
-  const destination=pendingPageAfterLogin;
-  pendingPageAfterLogin=null;
-  if(destination==='balance') showPage('balance');
+  try{
+    await loadCurrentRole();
+    hideLogin();
+    await loadCloudInvoices(); setupPeriodFilters(); renderBalance(); applyRoleUI();
+    resetNewInvoice();
+    showPage('invoice');
+  }catch(e){
+    console.error(e); currentRole=null; currentUser=null;
+    await supabaseClient.auth.signOut();
+    showLogin('Sign-in setup error: '+e.message);
+  }
 }
 
 const $=id=>document.getElementById(id);
@@ -332,30 +304,41 @@ function renderTotals(){
 }
 function currentInvoice(){let t=totals();return{id:$('invoiceNo').value||invoiceNo(),date:$('invoiceDate').value,name:$('customerName').value.trim()||'Walk-in Customer',phone:$('customerPhone').value.trim(),items:items.map(x=>({...x})),discount:t.p,discountPercent:t.p,subtotal:t.sub,discountAmount:t.d,total:t.total,advance:t.advance,balance:t.balance,paymentMethod:$('paymentMethod').value||'Cash'}}
 async function saveInvoiceRecord(inv){
-  // A recorded invoice is immutable. Never overwrite invoice details under an existing ID.
   const existing=history.find(x=>String(x.id)===String(inv.id));
   const now=new Date().toISOString();
+  if(existing && isStaff()) { alert('Staff can create new invoices but cannot edit existing invoices.'); return null; }
   if(existing){
-    inv={...existing,...inv,items:(inv.items||[]).map(item=>({...item})),createdAt:existing.createdAt||now,updatedAt:now,hiddenFromHistory:false,locked:false, payments:Array.isArray(existing.payments)?existing.payments:[]};
-    // Preserve the payment ledger and avoid reducing paid amount when editing invoice details.
+    inv={...existing,...inv,items:(inv.items||[]).map(item=>({...item})),createdAt:existing.createdAt||now,updatedAt:now,hiddenFromHistory:false,locked:false,payments:Array.isArray(existing.payments)?existing.payments:[]};
     const paid=inv.payments.reduce((sum,p)=>sum+(Number(p.amount)||0),0);
     inv.advance=Math.max(Number(inv.advance)||0,paid); inv.balance=Math.max(0,(Number(inv.total)||0)-inv.advance);
     history=history.map(x=>String(x.id)===String(inv.id)?inv:x);
-  }else{
+    await persistInvoices();
+  } else {
     inv={...inv,items:(inv.items||[]).map(item=>({...item})),payments:[],createdAt:now,hiddenFromHistory:false,locked:false};
     if(Number(inv.advance)>0) inv.payments.push({amount:Number(inv.advance),method:inv.paymentMethod||'Cash',datetime:now,note:'Advance at invoice creation'});
-    history.unshift(inv);
+    if(isStaff()){
+      if(!supabaseClient || !currentUser) { alert('Please sign in before creating an invoice.'); return null; }
+      const row={id:String(inv.id),invoice_date:inv.date||now.slice(0,10),customer_name:inv.name||'Walk-in Customer',customer_phone:inv.phone||'',total:Number(inv.total)||0,collected:Number(inv.advance)||0,pending:Math.max(0,(Number(inv.total)||0)-(Number(inv.advance)||0)),invoice_data:inv,created_by:currentUser.id,updated_at:now};
+      const {error}=await supabaseClient.from('invoices').insert(row);
+      if(error){alert('Could not save invoice: '+error.message);return null;}
+      history.unshift(inv); localPersist();
+    } else {
+      history.unshift(inv);
+      const saved=await persistInvoices(); if(saved===false) return null;
+    }
   }
-  await persistInvoices();
-  renderHistory();refreshPeriodYears();renderBalance();
+  renderHistory();refreshPeriodYears();renderBalance();if(isStaff())renderStaffActions();
   return inv;
 }
+
 function loadInvoice(id){
+  if(isStaff()){alert('Staff cannot edit existing invoices.');return;}
   const x=history.find(v=>String(v.id)===String(id));
   if(!x)return;
   $('customerName').value=x.name||''; $('customerPhone').value=x.phone||''; $('invoiceDate').value=x.date||new Date().toISOString().slice(0,10); $('invoiceNo').value=x.id; items=(x.items||[]).map(item=>({...item})); $('discountInput').value=Number(x.discountAmount??0); $('advanceInput').value=Number(x.advance??0); if($('paymentMethod'))$('paymentMethod').value=x.paymentMethod||'Cash'; renderItems();renderTotals();showPage('invoice');alert('Invoice opened for editing. Generate/save to update this shared invoice for all browsers.');
 }
 async function deleteInvoice(id){
+  if(isStaff()){alert('Staff cannot delete invoices.');return;}
   if(!confirm('Hide this invoice from Invoice History? It will remain in Balance & Transactions for record keeping.'))return;
   const inv=history.find(x=>String(x.id)===String(id));
   if(!inv)return;
@@ -401,24 +384,16 @@ async function collectPayment(id){
   if(method===null)return;
   const now=new Date().toISOString();
   if(isStaff()){
-    if(!supabaseClient || !currentUser) return alert('Please sign in to collect and sync payments.');
+    if(!supabaseClient || !currentUser) return alert('Please sign in to collect payments.');
     try{
-      const {data,error}=await supabaseClient.rpc('collect_invoice_payment',{
-        p_invoice_id:String(id), p_amount:amount, p_method:method
-      });
+      const {data,error}=await supabaseClient.rpc('collect_invoice_payment',{p_invoice_id:String(id),p_amount:amount,p_method:method});
       if(error) throw error;
-      const updated=data?.invoice_data || data;
-      if(updated && updated.id){
-        history=history.map(x=>String(x.id)===String(id)?updated:x);
-      }else{
-        // Refresh the authoritative invoice after the server-side payment function succeeds.
-        const {data:row,error:readError}=await supabaseClient.from('invoices').select('invoice_data').eq('id',String(id)).single();
-        if(readError) throw readError;
-        if(row?.invoice_data) history=history.map(x=>String(x.id)===String(id)?row.invoice_data:x);
-      }
+      const updated=data?.invoice_data||data;
+      if(updated?.id) history=history.map(x=>String(x.id)===String(id)?updated:x);
+      else { const {data:row,error:readError}=await supabaseClient.from('invoices').select('invoice_data').eq('id',String(id)).single(); if(readError)throw readError; if(row?.invoice_data)history=history.map(x=>String(x.id)===String(id)?row.invoice_data:x); }
       localPersist(); renderStaffActions();
-      alert('Payment recorded successfully.');
-    }catch(err){ console.error(err); alert('Payment was not recorded: '+(err.message||'Unknown error')); }
+      alert('Payment recorded: '+money(amount)+'\nRecorded at: '+new Date(now).toLocaleString());
+    }catch(err){console.error(err);alert('Payment was not recorded: '+(err.message||'Unknown error'));}
     return;
   }
   if(!Array.isArray(inv.payments)){
@@ -590,7 +565,8 @@ function resetNewInvoice(){
 }
 
 function showPage(id){
-  if(isStaff() && ['balance','history','invoice'].includes(id)) { showPage('staffActions'); return; }
+  if(!currentUser){ showLogin('Please sign in to access the billing portal.'); return; }
+  if(isStaff() && ['balance','history'].includes(id)){ showPage('staffActions'); return; }
   if(id==='staffActions' && !isStaff()) return;
   if(id==='balance' && !currentUser){
     pendingPageAfterLogin='balance';
@@ -613,9 +589,11 @@ $('printBtn').onclick=async()=>{
   if(!items.length)return alert('Add at least one item.');
   const inv=currentInvoice();
   if(!inv.items.every(x=>(String(x.flexType||'')==='Bond'||String(x.size||'').trim()) && Number.isFinite(Number(x.rate)) && Number(x.rate)>=0))return alert('Check each item size and rate before generating.');
-  await saveInvoiceRecord(inv);
-  // Save the invoice to history without opening a print window or preview.
+  const saved=await saveInvoiceRecord(inv);
+  if(!saved)return;
+  // Save the invoice without changing the existing billing workflow.
   resetNewInvoice();
+  if(isStaff()) showPage('invoice');
 };
 function printInvoice(inv){
   const sub=Number(inv.subtotal)||0,discount=Number(inv.discountAmount)||0,percent=Number(inv.discountPercent??inv.discount)||0;
@@ -759,25 +737,16 @@ $('loginNavButton').addEventListener('click',()=>{
 });
 $('logoutButton').addEventListener('click',async()=>{
   if(supabaseClient) await supabaseClient.auth.signOut();
-  currentUser=null; currentRole=null; cloudReady=false; pendingPageAfterLogin=null;
+  currentUser=null; currentRole=null; cloudReady=false;
+      showLogin('Please sign in to continue.'); pendingPageAfterLogin=null;
   $('logoutButton').hidden=true; $('loginNavButton').textContent='Login';
   if($('balanceNav')) $('balanceNav').classList.remove('active');
-  hideLogin();
-  renderHistory();
+  $('mainApp').hidden=true;
+  showLogin('You have signed out. Please sign in to continue.');
   resetNewInvoice();
-  showPage('invoice');
 });
-$('loginScreen').addEventListener('click',e=>{ if(e.target===$('loginScreen')) hideLogin(); });
+$('loginScreen').addEventListener('click',e=>{ /* Login is required; backdrop clicks do not dismiss it. */ });
 setup();
+$('mainApp').hidden=true;
+showLogin('Sign in with your authorized portal account to continue.');
 initSupabase();
-// Always show the billing UI on startup; cloud sign-in remains available from the Login tab.
-// This prevents a blank screen when testing the extracted folder without a saved Supabase session.
-$('mainApp').hidden=false;
-hideLogin();
-// The billing interface remains available; login is opened only when the Login tab is clicked.
-if(configIsReady() && window.supabase?.createClient){
-  supabaseClient=window.supabase.createClient(window.COLOURS_SUPABASE_URL,window.COLOURS_SUPABASE_ANON_KEY);
-  loadPublicInvoiceHistory();
-  loadCloudInvoices().catch(e=>{console.error('Public cloud invoice load failed',e); publicHistoryError=e.message||'Cloud invoice load failed'; renderHistory();});
-  supabaseClient.auth.getSession().then(({data})=>{ if(data?.session) activateSession(data.session); });
-}
